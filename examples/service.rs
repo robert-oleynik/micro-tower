@@ -1,3 +1,5 @@
+use micro_tower::runtime::Runtime;
+
 #[micro_tower::codegen::service]
 async fn hello_world(_: ()) -> &'static str {
     "Hello, World!"
@@ -9,7 +11,12 @@ micro_tower::runtime::manifest! {
     ]
 }
 
-#[tokio::main]
-async fn main() {
-    let _manifest = Manifest::create();
+fn main() {
+    let rt = tokio::runtime::Builder::new_multi_thread().build().unwrap();
+    Runtime::builder()
+        .runtime(rt)
+        .build()
+        .unwrap()
+        .manifest::<Manifest>()
+        .run();
 }
