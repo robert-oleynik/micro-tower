@@ -1,0 +1,12 @@
+[package]
+name = "micro-tower"
+version = "0.1.0"
+edition = "2021"
+
+[workspace]
+members = [
+	"codegen",
+]
+
+[dependencies.micro-tower-codegen]
+path = "codegen/"
