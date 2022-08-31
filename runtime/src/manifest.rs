@@ -1,6 +1,7 @@
 #[macro_export]
 macro_rules! manifest {
     ( $manifest:ident: [ $( $service:ident ),* ] ) => {
+        #[derive(::std::clone::Clone)]
         struct $manifest {
             $( $service: < $service as ::micro_tower::core::service::Create > :: Service ),*
         }
@@ -12,6 +13,16 @@ macro_rules! manifest {
                 }
             }
         }
+
+        $(
+            impl ::micro_tower::core::service::GetByName<$service> for $manifest {
+                type Service = <$service as ::micro_tower::core::service::Create>::Service;
+
+                fn get(&self) -> &Self::Service {
+                    &self.$service
+                }
+            }
+        )*
     };
 }
 

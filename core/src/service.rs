@@ -1,7 +1,9 @@
 /// Used return a service of type `S` from a multi service container.
-pub trait GetService<S> {
+pub trait GetByName<Name> {
+    type Service;
+
     /// Returns a reference to a service of type `S`.
-    fn get(&self) -> &S;
+    fn get(&self) -> &Self::Service;
 }
 
 pub trait Create {
