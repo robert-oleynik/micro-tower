@@ -34,30 +34,26 @@ impl Items {
         let request = inputs.first().expect("Expected at least one parameter");
         let request_type = match request {
             syn::FnArg::Typed(ty) => ty.ty.clone(),
-            _ => panic!("self is not allowed in this context")
+            _ => panic!("self is not allowed in this context"),
         };
         quote::quote!(
             #[allow(non_camel_case_types)]
             #pub_token struct #ident;
-            
-            impl #ident {
-                #pub_token fn call( #inputs ) -> ::std::pin::Pin<::std::boxed::Box<dyn ::std::future::Future<Output = #output> + Send>> {
+
+            impl ::micro_tower::tower::Service< #request_type > for #ident {
+                type Response = #output;
+                type Error = ::std::convert::Infallible;
+                type Future = ::std::pin::Pin<::std::boxed::Box<dyn ::std::future::Future<Output = #output>>>;
+
+                fn poll_ready(&mut self, cx: &mut ::std::task::Context<'_>) -> ::std::task::Poll<Result<(), Self::Error>> {
+                    ::std::task::Poll::Ready(Ok(()))
+                }
+
+                fn call(&mut self, #request) -> Self::Future {
                     ::std::boxed::Box::pin(async move {
                         let call = move || -> #output #block;
                         call()
                     })
-                }
-            }
-
-            impl ::micro_tower::core::service::CreateService for #ident {
-                type Service = ::micro_tower::tower::util::BoxService<#request_type, #output, ::micro_tower::tower::BoxError>;
-
-                fn create() -> Self::Service {
-                    ::micro_tower::tower::ServiceBuilder::new()
-                        .boxed()
-                        .service_fn(|req| async move {
-                            Ok(Self::call(req).await)
-                        })
                 }
             }
         )
