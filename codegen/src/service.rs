@@ -38,21 +38,32 @@ impl Items {
         };
         quote::quote!(
             #[allow(non_camel_case_types)]
+            #[derive(::std::clone::Clone)]
             #pub_token struct #ident;
+
+            impl ::micro_tower::core::service::Create for #ident {
+                type Service = ::micro_tower::tower::util::BoxCloneService<#request_type, #output, ::std::convert::Infallible>;
+
+                fn create() -> Self::Service {
+                    ::micro_tower::tower::ServiceBuilder::new()
+                        .boxed_clone()
+                        .service(#ident)
+                }
+            }
 
             impl ::micro_tower::tower::Service< #request_type > for #ident {
                 type Response = #output;
                 type Error = ::std::convert::Infallible;
-                type Future = ::std::pin::Pin<::std::boxed::Box<dyn ::std::future::Future<Output = #output>>>;
+                type Future = ::std::pin::Pin<::std::boxed::Box<dyn ::std::future::Future<Output = Result<Self::Response, Self::Error>> + Send>>;
 
                 fn poll_ready(&mut self, cx: &mut ::std::task::Context<'_>) -> ::std::task::Poll<Result<(), Self::Error>> {
                     ::std::task::Poll::Ready(Ok(()))
                 }
 
                 fn call(&mut self, #request) -> Self::Future {
+                    let fut = async move #block;
                     ::std::boxed::Box::pin(async move {
-                        let call = move || -> #output #block;
-                        call()
+                        Ok(fut.await)
                     })
                 }
             }

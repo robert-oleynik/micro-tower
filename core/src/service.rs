@@ -4,7 +4,7 @@ pub trait GetService<S> {
     fn get(&self) -> &S;
 }
 
-pub trait CreateService {
+pub trait Create {
     type Service;
 
     fn create() -> Self::Service;
