@@ -5,6 +5,11 @@ async fn hello_world(_: ()) -> &'static str {
     "Hello, World!"
 }
 
+#[micro_tower::codegen::service]
+async fn hello_world2(_: ()) -> Result<String, std::convert::Infallible> {
+    Ok(String::from("Hello, World!"))
+}
+
 micro_tower::runtime::manifest! {
     Manifest: [
         hello_world

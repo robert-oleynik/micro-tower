@@ -48,7 +48,53 @@ impl Signature {
         }
     }
 
+    /// Returns `true` if response type is wrapped in `Result`.
+    pub fn ret_result(&self) -> bool {
+        if let syn::Type::Path(syn::TypePath {
+            qself: None,
+            path:
+                syn::Path {
+                    leading_colon: _,
+                    segments,
+                },
+        }) = &self.output
+        {
+            if let Some(last) = segments.last() {
+                return last.ident == "Result";
+            }
+            return true;
+        }
+        false
+    }
+
+    pub fn output(&self) -> &syn::Type {
+        &self.output
+    }
+
     pub fn response_type(&self) -> &syn::Type {
+        if let syn::Type::Path(syn::TypePath {
+            qself: None,
+            path:
+                syn::Path {
+                    leading_colon: _,
+                    segments,
+                },
+        }) = &self.output
+        {
+            if let Some(last) = segments.last() {
+                if let syn::PathArguments::AngleBracketed(syn::AngleBracketedGenericArguments {
+                    colon2_token: _,
+                    lt_token: _,
+                    args,
+                    gt_token: _,
+                }) = &last.arguments
+                {
+                    if let Some(syn::GenericArgument::Type(ty)) = args.first() {
+                        return ty;
+                    }
+                }
+            }
+        }
         &self.output
     }
 }
