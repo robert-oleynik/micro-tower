@@ -1,7 +1,7 @@
 use derive_builder::Builder;
 use derive_builder::UninitializedFieldError;
 
-pub mod manifest;
+use super::manifest;
 
 #[derive(Builder)]
 #[builder(build_fn(skip), pattern = "owned")]

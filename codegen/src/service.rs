@@ -42,7 +42,7 @@ impl Items {
                 async fn handle(#request_arg) -> #output #block
             }
 
-            impl ::micro_tower::core::service::Create for #ident {
+            impl ::micro_tower::service::Create for #ident {
                 type Service = ::micro_tower::tower::util::BoxCloneService<#request_type, #response_type, ::micro_tower::tower::BoxError>;
 
                 fn create() -> Self::Service {

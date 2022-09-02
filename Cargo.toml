@@ -6,9 +6,10 @@ edition = "2021"
 [workspace]
 members = [
 	"codegen",
-	"core",
-	"runtime"
 ]
+
+[dependencies]
+derive_builder = "~0.11.2"
 
 [dependencies.tokio]
 version = "~1.20.1"
@@ -17,12 +18,6 @@ features = ["full"]
 [dependencies.tower]
 version = "~0.4.13"
 features = ["full"]
-
-[dependencies.micro-tower-core]
-path = "core/"
-
-[dependencies.micro-tower-runtime]
-path = "runtime/"
 
 [dependencies.micro-tower-codegen]
 path = "codegen/"

@@ -10,7 +10,7 @@ async fn hello_world2(_: ()) -> Result<String, std::convert::Infallible> {
     Ok(String::from("Hello, World!"))
 }
 
-micro_tower::runtime::manifest! {
+micro_tower::manifest! {
     Manifest: [
         hello_world
     ]
