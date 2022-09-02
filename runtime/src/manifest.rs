@@ -16,10 +16,8 @@ macro_rules! manifest {
 
         $(
             impl ::micro_tower::core::service::GetByName<$service> for $manifest {
-                type Service = <$service as ::micro_tower::core::service::Create>::Service;
-
-                fn get(&self) -> &Self::Service {
-                    &self.$service
+                fn get(&self) -> ::micro_tower::core::Service<$service> {
+                    ::micro_tower::core::Service::from_service(self.$service.clone())
                 }
             }
         )*

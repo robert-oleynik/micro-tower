@@ -1,11 +1,9 @@
 use std::ops::{Deref, DerefMut};
 
 /// Used return a service of type `S` from a multi service container.
-pub trait GetByName<Name> {
-    type Service;
-
+pub trait GetByName<Name: Create> {
     /// Returns a reference to a service of type `S`.
-    fn get(&self) -> &Self::Service;
+    fn get(&self) -> Service<Name>;
 }
 
 /// Provides interface to create services. Used by `codegen`
@@ -31,6 +29,7 @@ pub trait Create {
 ///     result
 /// }
 /// ```
+#[derive(Clone)]
 pub struct Service<S: Create> {
     service: S::Service,
 }
