@@ -29,23 +29,34 @@ pub fn service(attr: TokenStream, item: TokenStream) -> TokenStream {
         true => quote::quote!(Ok(result?)),
         false => quote::quote!(Ok(result)),
     };
+    let deps0 = service.deps();
+    let deps1 = service.deps();
+    let deps2 = service.deps();
+    let dep_args = service.service_dependencies.iter();
 
     quote::quote!(
         #[allow(non_camel_case_types)]
         #[derive(::std::clone::Clone)]
-        #pub_token struct #name;
+        #pub_token struct #name(#( #deps0 ),*);
 
         impl #name {
-            async fn handle(#request_arg) #output #block
+            async fn handle(#request_arg, #( #dep_args ),*) #output #block
         }
 
+        impl #crate_mod::utils::Named for #name {}
         impl #crate_mod::service::Create for #name {
             type Service = ::micro_tower::tower::util::BoxCloneService<#request, #response, #crate_mod::tower::BoxError>;
 
-            fn create() -> Self::Service {
+            fn deps() -> &'static [::std::any::TypeId] {
+                &[ #( #deps1::name() ),* ]
+            }
+
+            fn create(registry: & #crate_mod::utils::TypeRegistry) -> Self::Service {
                 #crate_mod::tower::ServiceBuilder::new()
                     .boxed_clone()
-                    .service(#name)
+                    .service(#name (
+                        #( registry.get(&#deps2::name()).unwrap()),*
+                    ))
             }
         }
 

@@ -1,5 +1,7 @@
 use proc_macro::{Diagnostic, Level};
-use syn::{parse::Parse, GenericArgument, PathSegment};
+use syn::parse::Parse;
+use syn::spanned::Spanned;
+use syn::{GenericArgument, PathSegment};
 
 use self::signature::Signature;
 
@@ -150,6 +152,23 @@ impl Service {
             service_dependencies,
             code_block,
         })
+    }
+
+    pub fn deps(&self) -> impl Iterator<Item = Box<syn::Type>> + '_ {
+        self.service_dependencies
+            .iter()
+            .filter_map(|dep| match dep {
+                syn::FnArg::Receiver(recv) => {
+                    Diagnostic::spanned(
+                        vec![recv.self_token.span().unwrap()],
+                        Level::Error,
+                        "`self` is not allowed in this context",
+                    )
+                    .emit();
+                    None
+                }
+                syn::FnArg::Typed(syn::PatType { ty, .. }) => Some(ty.clone()),
+            })
     }
 }
 
