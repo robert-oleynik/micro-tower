@@ -24,7 +24,6 @@ macro_rules! manifest {
                                     <$service as $crate::utils::Named>::name(),
                                     Box::new(<$service as $crate::service::Create>::create(&registry))
                                     );
-                                todo!("Add to registry");
                             }
                         }
                     )*
