@@ -2,7 +2,7 @@
 
 use proc_macro::TokenStream;
 use service::Service;
-use syn::parse_macro_input;
+use syn::{parse_macro_input, spanned::Spanned};
 
 mod service;
 mod utils;
@@ -32,6 +32,8 @@ pub fn service(attr: TokenStream, item: TokenStream) -> TokenStream {
     let deps0 = service.deps();
     let deps1 = service.deps();
     let deps2 = service.deps();
+    let depc =
+        (0..service.deps().count()).map(|l| syn::LitInt::new(&format!("{l}"), output.span()));
     let dep_args = service.service_dependencies.iter();
 
     quote::quote!(
@@ -47,15 +49,15 @@ pub fn service(attr: TokenStream, item: TokenStream) -> TokenStream {
         impl #crate_mod::service::Create for #name {
             type Service = ::micro_tower::tower::util::BoxCloneService<#request, #response, #crate_mod::tower::BoxError>;
 
-            fn deps() -> &'static [::std::any::TypeId] {
-                &[ #( #deps1::name() ),* ]
+            fn deps() -> ::std::vec::Vec<::std::any::TypeId> {
+                vec![ #( <#deps1 as #crate_mod::utils::Named>::name() ),* ]
             }
 
             fn create(registry: & #crate_mod::utils::TypeRegistry) -> Self::Service {
                 #crate_mod::tower::ServiceBuilder::new()
                     .boxed_clone()
                     .service(#name (
-                        #( registry.get(&#deps2::name()).unwrap()),*
+                        #( <#crate_mod::utils::TypeRegistry as #crate_mod::service::GetByName<#deps2>>::get(registry).unwrap()),*
                     ))
             }
         }
@@ -70,8 +72,9 @@ pub fn service(attr: TokenStream, item: TokenStream) -> TokenStream {
             }
 
             fn call(&mut self, request: #request) -> Self::Future {
+                let this = self.clone();
                 ::std::boxed::Box::pin(async move {
-                    let result = Self::handle(request).await;
+                    let result = Self::handle(request, #( this.#depc ),*).await;
                     #ret
                 })
             }

@@ -4,16 +4,18 @@ use std::ops::{Deref, DerefMut};
 use crate::utils::{Named, TypeRegistry};
 
 /// Used return a service of type `S` from a multi service container.
-pub trait GetByName<S: Create> {
+pub trait GetByName<S> {
+    type Target;
+
     /// Returns a reference to a service of type `S`.
-    fn get(&self) -> Option<Service<S>>;
+    fn get(&self) -> Option<Self::Target>;
 }
 
 /// Provides interface to create services. Used by `codegen`
 pub trait Create: crate::utils::Named {
     type Service;
 
-    fn deps() -> &'static [TypeId];
+    fn deps() -> Vec<TypeId>;
 
     fn create(registry: &TypeRegistry) -> Self::Service;
 }
@@ -35,7 +37,10 @@ pub trait Create: crate::utils::Named {
 /// }
 /// ```
 #[derive(Clone)]
-pub struct Service<S: Create> {
+pub struct Service<S: Create>
+where
+    S::Service: Sized,
+{
     inner: S::Service,
 }
 
