@@ -1,4 +1,4 @@
-use micro_tower::runtime::Runtime;
+use micro_tower::{runtime::Runtime, service::Service};
 
 #[micro_tower::codegen::service]
 async fn hello_world(_: ()) -> &'static str {
@@ -11,7 +11,7 @@ async fn hello_world2(_: ()) -> Result<String, std::convert::Infallible> {
 }
 
 #[micro_tower::codegen::service(crate = "micro_tower")]
-async fn hello_args(_: ()) -> &'static str {
+async fn hello_args(_: (), service: Service<hello_world>) -> &'static str {
     "Hello, World!"
 }
 
