@@ -1,18 +1,10 @@
-use proc_macro::TokenStream;
-use syn::parse::Parse;
+use proc_macro::{Diagnostic, Level};
+use syn::{parse::Parse, GenericArgument, PathSegment};
 
 use self::signature::Signature;
 
+mod args;
 mod signature;
-
-/// Parse proc attribute arguments.
-pub struct Args {}
-
-impl Parse for Args {
-    fn parse(_: syn::parse::ParseStream) -> syn::Result<Self> {
-        Ok(Self {})
-    }
-}
 
 /// Parse proc attribute items.
 pub struct Items {
@@ -20,56 +12,144 @@ pub struct Items {
     block: Box<syn::Block>,
 }
 
-impl Items {
-    pub fn generate(self) -> TokenStream {
-        let pub_token = self.signature.pub_token();
-        let ident = self.signature.ident();
-        let block = self.block;
-        let request_arg = self.signature.request_arg();
-        let request_type = self.signature.request_type();
-        let response_type = self.signature.response_type();
-        let ret = match self.signature.ret_result() {
-            true => quote::quote!(Ok(result?)),
-            false => quote::quote!(Ok(result)),
+pub struct Service {
+    pub args: args::Args,
+    pub pub_token: Option<syn::token::Pub>,
+    pub name: syn::Ident,
+    pub request: Box<syn::Type>,
+    pub request_arg: syn::FnArg,
+    pub output: syn::ReturnType,
+    pub response: Option<syn::Type>,
+    pub response_result: bool,
+    pub service_dependencies: Vec<syn::FnArg>,
+    pub code_block: Box<syn::Block>,
+}
+
+fn infer_result_ok_type(seg: &PathSegment) -> Option<syn::Type> {
+    match &seg.arguments {
+        syn::PathArguments::AngleBracketed(args)
+            if args.args.len() == 1 || args.args.len() == 2 =>
+        {
+            if let GenericArgument::Type(ty) = args.args.first().unwrap() {
+                return Some(ty.clone());
+            }
+            Diagnostic::spanned(
+                vec![seg.ident.span().unwrap()],
+                Level::Error,
+                "Expected generic type as first parameter",
+            )
+            .emit();
+            None
+        }
+        syn::PathArguments::AngleBracketed(_) | syn::PathArguments::None => {
+            Diagnostic::spanned(
+                vec![seg.ident.span().unwrap()],
+                Level::Error,
+                "Cannot infer result ok type.",
+            )
+            .emit();
+            None
+        }
+        _ => unimplemented!(),
+    }
+}
+
+impl Service {
+    pub fn new(args: syn::AttributeArgs, items: Items) -> syn::Result<Self> {
+        let args = args::Args::try_from(args)?;
+        let name = items.signature.ident;
+        let request_arg = match items.signature.inputs.first() {
+            Some(input) => input.clone(),
+            None => {
+                Diagnostic::spanned(
+                    vec![items.signature.paren_token.span.unwrap()],
+                    Level::Error,
+                    "Missing request parameter",
+                )
+                .emit();
+                panic!()
+            }
         };
-        let output = self.signature.output();
-        quote::quote!(
-            #[allow(non_camel_case_types)]
-            #[derive(::std::clone::Clone)]
-            #pub_token struct #ident;
-
-            impl #ident {
-                async fn handle(#request_arg) -> #output #block
+        let request = match &request_arg {
+            syn::FnArg::Typed(ty) => ty.ty.clone(),
+            syn::FnArg::Receiver(recv) => {
+                Diagnostic::spanned(
+                    vec![recv.self_token.span.unwrap()],
+                    Level::Error,
+                    "`self` is not allowed in this context",
+                )
+                .emit();
+                panic!()
             }
+        };
+        let output = items.signature.output.clone();
+        let (response, response_result) = match items.signature.output {
+            syn::ReturnType::Default => (None, false),
+            syn::ReturnType::Type(_, ty) => {
+                match *ty {
+                    syn::Type::Infer(ref t) => {
+                        Diagnostic::spanned(
+                            vec![t.underscore_token.span.unwrap()],
+                            Level::Error,
+                            "Response type must be specified explicitly.",
+                        )
+                        .emit();
+                    }
+                    syn::Type::ImplTrait(ref t) => {
+                        Diagnostic::spanned(
+                            vec![t.impl_token.span.unwrap()],
+                            Level::Error,
+                            "`impl` is not allowed in this context",
+                        )
+                        .emit();
+                    }
+                    syn::Type::Never(ref t) => {
+                        Diagnostic::spanned(
+                            vec![t.bang_token.span.unwrap()],
+                            Level::Error,
+                            "`!` is not allowed in this context",
+                        )
+                        .emit();
+                    }
+                    _ => {}
+                };
 
-            impl ::micro_tower::service::Create for #ident {
-                type Service = ::micro_tower::tower::util::BoxCloneService<#request_type, #response_type, ::micro_tower::tower::BoxError>;
-
-                fn create() -> Self::Service {
-                    ::micro_tower::tower::ServiceBuilder::new()
-                        .boxed_clone()
-                        .service(#ident)
+                if let syn::Type::Path(syn::TypePath { ref path, .. }) = *ty {
+                    if let Some(last) = path.segments.last() {
+                        if last.ident == "Result" {
+                            let result = infer_result_ok_type(last);
+                            (result, true)
+                        } else {
+                            (None, false)
+                        }
+                    } else {
+                        (Some((*ty).clone()), false)
+                    }
+                } else {
+                    (Some((*ty).clone()), false)
                 }
             }
+        };
+        let service_dependencies = items
+            .signature
+            .inputs
+            .into_iter()
+            .skip(1)
+            .collect::<Vec<_>>();
+        let code_block = items.block;
 
-            impl ::micro_tower::tower::Service< #request_type > for #ident {
-                type Response = #response_type;
-                type Error = ::micro_tower::tower::BoxError;
-                type Future = ::std::pin::Pin<::std::boxed::Box<dyn ::std::future::Future<Output = Result<Self::Response, Self::Error>> + Send>>;
-
-                fn poll_ready(&mut self, cx: &mut ::std::task::Context<'_>) -> ::std::task::Poll<Result<(), Self::Error>> {
-                    ::std::task::Poll::Ready(Ok(()))
-                }
-
-                fn call(&mut self, request: #request_type) -> Self::Future {
-                    ::std::boxed::Box::pin(async move {
-                        let result = Self::handle(request).await;
-                        #ret
-                    })
-                }
-            }
-        )
-        .into()
+        Ok(Self {
+            args,
+            name,
+            pub_token: items.signature.pub_token,
+            request_arg,
+            request,
+            response,
+            response_result,
+            output,
+            service_dependencies,
+            code_block,
+        })
     }
 }
 
