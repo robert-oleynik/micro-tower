@@ -1,3 +1,4 @@
+use micro_tower::prelude::*;
 use micro_tower::{runtime::Runtime, service::Service};
 use tracing::Level;
 use tracing_subscriber::FmtSubscriber;
@@ -14,8 +15,6 @@ async fn hello_world2(_: ()) -> Result<String, std::convert::Infallible> {
 
 #[micro_tower::codegen::service(crate = "micro_tower")]
 async fn hello_args(_: (), mut service: Service<hello_world>) -> &'static str {
-    use tower::Service;
-    use tower::ServiceExt;
     service.ready().await.unwrap().call(()).await.unwrap()
 }
 
