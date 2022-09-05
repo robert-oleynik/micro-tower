@@ -19,7 +19,7 @@ async fn hello_args(_: (), mut service: Service<hello_world>) -> &'static str {
     service.ready().await.unwrap().call(()).await.unwrap()
 }
 
-micro_tower::manifest! {
+micro_tower::codegen::manifest! {
     Manifest: [
         hello_args,
         hello_world,
@@ -41,6 +41,6 @@ fn main() {
         .runtime(rt)
         .build()
         .unwrap()
-        .manifest::<Manifest>()
+        .manifest(Manifest::create)
         .run();
 }

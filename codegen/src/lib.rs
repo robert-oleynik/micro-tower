@@ -1,11 +1,94 @@
 #![feature(proc_macro_diagnostic)]
 
-use proc_macro::TokenStream;
+use proc_macro::{Diagnostic, Level, TokenStream};
 use service::Service;
 use syn::{parse_macro_input, spanned::Spanned};
 
+mod manifest;
 mod service;
 mod utils;
+
+#[proc_macro]
+pub fn manifest(item: TokenStream) -> TokenStream {
+    let manifest = parse_macro_input!(item as manifest::Manifest);
+
+    let crate_mod: syn::Path = syn::parse_str("::micro_tower").unwrap();
+
+    let name = &manifest.name;
+    let pub_token = &manifest.pub_token;
+
+    if manifest.services.is_empty() {
+        Diagnostic::spanned(
+            vec![manifest.brackets.span.unwrap()],
+            Level::Warning,
+            "No services specified",
+        );
+    }
+
+    let service_decl = manifest.services.iter().map(|service| {
+        let name = &service.name;
+        quote::quote!( #name: <#name as #crate_mod::service::Create>::Service )
+    });
+
+    let service_create = manifest.services.iter().map(|service| {
+        let name = &service.name;
+        quote::quote!(
+        let service_name = <#name as #crate_mod::utils::Named>::name();
+        if !registry.contains_key(&service_name) {
+            empty = false;
+            let service = ::std::stringify!(#name);
+            if <#name as #crate_mod::service::Create>::deps().iter().all(|dep| registry.contains_key(dep)) {
+                changed = true;
+                registry.insert(
+                    service_name,
+                    Box::new(<#name as #crate_mod::service::Create>::create(&registry))
+                    );
+            } else {
+                #crate_mod::tracing::debug!(message = "delay init due to missing dependencies of", service);
+            }
+        })
+    });
+
+    let service_init = manifest.services.iter().map(|service| {
+        let name = &service.name;
+        quote::quote!( #name: <#crate_mod::utils::TypeRegistry as #crate_mod::service::GetByName<#name>>::get(&registry).unwrap().into_inner() )
+    });
+
+    quote::quote!(
+        #[derive(::std::clone::Clone)]
+        #pub_token struct #name {
+            #( #service_decl ),*
+        }
+
+        impl #name {
+            pub fn create() -> Self {
+                let span = #crate_mod::tracing::span!(#crate_mod::tracing::Level::INFO, "init");
+                let _guard = span.enter();
+
+                let mut registry = #crate_mod::utils::TypeRegistry::new();
+
+                let mut empty = false;
+                let mut changed = true;
+                while !empty && changed {
+                    #crate_mod::tracing::trace!("start cycle");
+                    empty = true;
+                    changed = false;
+
+                    #( #service_create )*
+                }
+
+                if !empty {
+                    panic!("Services contains dependency cycle");
+                }
+
+                Self {
+                    #( #service_init ),*
+                }
+            }
+        }
+    )
+    .into()
+}
 
 #[proc_macro_attribute]
 pub fn service(attr: TokenStream, item: TokenStream) -> TokenStream {

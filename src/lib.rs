@@ -1,4 +1,3 @@
-pub mod manifest;
 pub mod runtime;
 pub mod service;
 pub mod utils;
