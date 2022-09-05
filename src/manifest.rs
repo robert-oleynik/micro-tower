@@ -29,7 +29,6 @@ macro_rules! manifest {
                                     <$service as $crate::utils::Named>::name(),
                                     Box::new(<$service as $crate::service::Create>::create(&registry))
                                     );
-                                $crate::tracing::event!($crate::tracing::Level::INFO, service);
                             } else {
                                 $crate::tracing::event!($crate::tracing::Level::DEBUG, message = "delay init due to missing dependencies of", service);
                             }

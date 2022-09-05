@@ -36,6 +36,12 @@ pub fn service(attr: TokenStream, item: TokenStream) -> TokenStream {
         (0..service.deps().count()).map(|l| syn::LitInt::new(&format!("{l}"), output.span()));
     let dep_args = service.service_dependencies.iter();
 
+    let name_lit = syn::LitStr::new(&name.to_string(), name.span());
+    let tracing_args = quote::quote!(
+        message = "created", service = #name_lit
+    );
+    let service_name = syn::LitStr::new(&format!("service::{}", name.to_string()), name.span());
+
     quote::quote!(
         #[allow(non_camel_case_types)]
         #[derive(::std::clone::Clone)]
@@ -54,11 +60,13 @@ pub fn service(attr: TokenStream, item: TokenStream) -> TokenStream {
             }
 
             fn create(registry: & #crate_mod::utils::TypeRegistry) -> Self::Service {
-                #crate_mod::tower::ServiceBuilder::new()
+                let s = #crate_mod::tower::ServiceBuilder::new()
                     .boxed_clone()
                     .service(#name (
                         #( <#crate_mod::utils::TypeRegistry as #crate_mod::service::GetByName<#deps2>>::get(registry).unwrap()),*
-                    ))
+                    ));
+                #crate_mod::tracing::event!(#crate_mod::tracing::Level::INFO, #tracing_args);
+                s
             }
         }
 
@@ -72,11 +80,16 @@ pub fn service(attr: TokenStream, item: TokenStream) -> TokenStream {
             }
 
             fn call(&mut self, request: #request) -> Self::Future {
+                use #crate_mod::tracing::Instrument;
+
                 let this = self.clone();
-                ::std::boxed::Box::pin(async move {
+                let fut = async move {
+                    #crate_mod::tracing::trace!("called");
                     let result = Self::handle(request, #( this.#depc ),*).await;
                     #ret
-                })
+                };
+                let fut = fut.instrument(#crate_mod::tracing::info_span!(#service_name));
+                ::std::boxed::Box::pin(fut)
             }
         }
     )
