@@ -32,12 +32,15 @@ pub fn manifest(item: TokenStream) -> TokenStream {
 
     let service_create = manifest.services.iter().map(|service| {
         let name = &service.name;
+        let service_lit = syn::LitStr::new(&name.to_string(), name.span());
         quote::quote!(
         let service_name = <#name as #crate_mod::utils::Named>::name();
         if !registry.contains_key(&service_name) {
             empty = false;
             let service = ::std::stringify!(#name);
             if <#name as #crate_mod::service::Create>::deps().iter().all(|dep| registry.contains_key(dep)) {
+                let span = #crate_mod::tracing::info_span!(#service_lit);
+                let _guard = span.enter();
                 changed = true;
                 registry.insert(
                     service_name,
@@ -62,7 +65,7 @@ pub fn manifest(item: TokenStream) -> TokenStream {
 
         impl #name {
             pub fn create() -> Self {
-                let span = #crate_mod::tracing::span!(#crate_mod::tracing::Level::INFO, "init");
+                let span = #crate_mod::tracing::info_span!("init");
                 let _guard = span.enter();
 
                 let mut registry = #crate_mod::utils::TypeRegistry::new();
@@ -120,10 +123,7 @@ pub fn service(attr: TokenStream, item: TokenStream) -> TokenStream {
     let dep_args = service.service_dependencies.iter();
 
     let name_lit = syn::LitStr::new(&name.to_string(), name.span());
-    let tracing_args = quote::quote!(
-        message = "created", service = #name_lit
-    );
-    let service_name = syn::LitStr::new(&format!("service::{}", name.to_string()), name.span());
+    let tracing_args = quote::quote!(message = "created");
 
     quote::quote!(
         #[allow(non_camel_case_types)]
@@ -148,7 +148,7 @@ pub fn service(attr: TokenStream, item: TokenStream) -> TokenStream {
                     .service(#name (
                         #( <#crate_mod::utils::TypeRegistry as #crate_mod::service::GetByName<#deps2>>::get(registry).unwrap()),*
                     ));
-                #crate_mod::tracing::event!(#crate_mod::tracing::Level::INFO, #tracing_args);
+                #crate_mod::tracing::info!(#tracing_args);
                 s
             }
         }
@@ -171,7 +171,7 @@ pub fn service(attr: TokenStream, item: TokenStream) -> TokenStream {
                     let result = Self::handle(request, #( this.#depc ),*).await;
                     #ret
                 };
-                let fut = fut.instrument(#crate_mod::tracing::info_span!(#service_name));
+                let fut = fut.instrument(#crate_mod::tracing::info_span!(#name_lit));
                 ::std::boxed::Box::pin(fut)
             }
         }
