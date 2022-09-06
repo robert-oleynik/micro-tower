@@ -20,7 +20,7 @@ async fn hello_args(_: (), mut service: Service<hello_world>) -> &'static str {
 
 micro_tower::codegen::manifest! {
     Manifest: [
-        hello_args,
+        hello_args: 8080,
         hello_world,
         hello_world2
     ]
@@ -33,13 +33,11 @@ fn main() {
     tracing::subscriber::set_global_default(subscriber)
         .expect("Failed setting default logging subscriber.");
 
-    tracing::trace!("Hello, WOrld!");
-
     let rt = tokio::runtime::Builder::new_multi_thread().build().unwrap();
     Runtime::builder()
         .runtime(rt)
         .build()
         .unwrap()
         .manifest(Manifest::create)
-        .run();
+        .run(Manifest::run);
 }

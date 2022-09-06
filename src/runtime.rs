@@ -1,5 +1,6 @@
 use derive_builder::Builder;
 use derive_builder::UninitializedFieldError;
+use tokio::task::JoinHandle;
 
 #[derive(Builder)]
 #[builder(build_fn(skip), pattern = "owned")]
@@ -36,10 +37,20 @@ impl Runtime<()> {
 }
 
 impl<M> Runtime<M> {
-    pub fn run(self) {
+    pub fn run(self, f: impl FnOnce(M) -> Vec<JoinHandle<()>>) {
         let manifest = self.manifest;
         self.runtime.block_on(async move {
-            let _ = manifest;
+            tracing::info!("start runtime");
+            for (i, j) in f(manifest).into_iter().enumerate() {
+                if let Err(err) = j.await {
+                    tracing::error!(
+                        message = "Failed to wait for job to finish",
+                        error = format!("{err}")
+                    )
+                }
+                tracing::trace!("job {i} stopped")
+            }
+            tracing::info!("exiting runtime")
         })
     }
 }

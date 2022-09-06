@@ -57,6 +57,14 @@ pub fn manifest(item: TokenStream) -> TokenStream {
         quote::quote!( #name: <#crate_mod::utils::TypeRegistry as #crate_mod::service::GetByName<#name>>::get(&registry).unwrap().into_inner() )
     });
 
+    let service_ports = manifest.services.iter().filter_map(|service| {
+        let name = &service.name;
+        service
+            .port
+            .clone()
+            .map(|port| quote::quote!( #crate_mod::tcp::run_service(#port, self.#name) ))
+    });
+
     quote::quote!(
         #[derive(::std::clone::Clone)]
         #pub_token struct #name {
@@ -87,6 +95,12 @@ pub fn manifest(item: TokenStream) -> TokenStream {
                 Self {
                     #( #service_init ),*
                 }
+            }
+
+            pub fn run(self) -> ::std::vec::Vec<#crate_mod::tokio::task::JoinHandle<()>> {
+                vec![
+                    #( #service_ports ),*
+                ]
             }
         }
     )
