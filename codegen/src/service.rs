@@ -21,9 +21,9 @@ pub struct Service {
 
 pub fn pat_ident(pat: &syn::Pat) -> Option<&syn::Ident> {
     match pat {
-        syn::Pat::Box(b) => pat_ident(&*b.pat),
+        syn::Pat::Box(b) => pat_ident(&b.pat),
         syn::Pat::Ident(ident) => Some(&ident.ident),
-        syn::Pat::Reference(r) => pat_ident(&*r.pat),
+        syn::Pat::Reference(r) => pat_ident(&r.pat),
         syn::Pat::Wild(_) => None,
         _ => {
             diagnostic!(error at [pat.span().unwrap()], "Pattern is not allowed in this context.");
@@ -100,10 +100,13 @@ impl Service {
             .iter()
             .map(|seg| format!("{}", seg.ident))
             .fold(String::new(), |b, seg| b + &seg + "::");
-        let p = match derive_builder_path.leading_colon.is_some() {
-            true => "::".to_string() + &p,
-            false => p,
+
+        let p = if derive_builder_path.leading_colon.is_some() {
+            "::".to_string() + &p
+        } else {
+            p
         };
+
         let error_ty_lit =
             syn::LitStr::new(&(p + "UninitializedFieldError"), derive_builder_path.span());
 
@@ -164,18 +167,17 @@ impl Service {
         let name = &self.items.signature.ident;
         let name_lit = syn::LitStr::new(&name.to_string(), name.span());
 
-        let request: syn::Type = match self.items.signature.inputs.first().and_then(|arg| match arg {
+        let request: syn::Type = if let Some(ty) =  self.items.signature.inputs.first().and_then(|arg| match arg {
             syn::FnArg::Receiver(recv) => {
                 diagnostic!(error at [recv.self_token.span().unwrap()], "`self` is not allowed in this context");
                 None
             },
             syn::FnArg::Typed(ty) => Some((*ty.ty).clone()),
         }) {
-            Some(ty) => ty,
-            None => {
-                diagnostic!(error at [self.items.signature.inputs.span().unwrap()], "No request type specified (Reason: Missing first parameter)");
-                syn::parse2(quote::quote!(())).unwrap()
-            }
+            ty
+        } else {
+            diagnostic!(error at [self.items.signature.inputs.span().unwrap()], "No request type specified (Reason: Missing first parameter)");
+            syn::parse2(quote::quote!(())).unwrap()
         };
 
         let (response, ret) = match &self.items.signature.output {
@@ -186,8 +188,7 @@ impl Service {
                         .path
                         .segments
                         .last()
-                        .map(|seg| seg.ident == "Result")
-                        .unwrap_or(false) =>
+                        .map_or(false, |seg| seg.ident == "Result") =>
                 {
                     path.path
                         .segments

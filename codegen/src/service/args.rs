@@ -1,6 +1,6 @@
 use micro_tower_codegen_macros::diagnostic;
 use syn::spanned::Spanned;
-use syn::*;
+use syn::{Lit, Meta, MetaNameValue, NestedMeta};
 
 pub struct Args {
     pub crate_path: syn::Path,
@@ -12,9 +12,10 @@ pub struct Args {
 fn get_module_path(args: &[MetaNameValue], name: &str, def: syn::Path) -> syn::Path {
     args.iter()
         .find(|arg| arg.path.is_ident(name))
-        .and_then(|arg| match &arg.lit {
-            Lit::Str(l) => Some(l),
-            _ => {
+        .and_then(|arg| {
+            if let Lit::Str(l) = &arg.lit {
+                    Some(l)
+            } else {
                 let lit_type = crate::util::lit_type_as_string(&arg.lit);
                 diagnostic!(error at [arg.lit.span().unwrap()], "Expected str literal but got {lit_type}");
                 None
@@ -49,7 +50,7 @@ impl From<syn::AttributeArgs> for Args {
                 None
             }
         }).filter(|arg| {
-            if ARGS.iter().find(|p| arg.path.is_ident(p)).is_none() {
+            if ARGS.iter().any(|p| arg.path.is_ident(p)) {
                 diagnostic!(warn at [arg.path.span().unwrap()], "Unknwon argument");
                 return false
             }

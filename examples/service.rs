@@ -27,10 +27,10 @@ async fn main() {
     tracing::subscriber::set_global_default(subscriber)
         .expect("Failed setting default logging subscriber.");
 
-    let hw_service = Service::<hello_world>::builder().build().unwrap();
-    let hw2_service = Service::<hello_world2>::builder().build().unwrap();
-    let ha_service = Service::<hello_args>::builder()
-        .service(hw_service)
+    let hello_service = Service::<hello_world>::builder().build().unwrap();
+    let world_service = Service::<hello_world2>::builder().build().unwrap();
+    let args_service = Service::<hello_args>::builder()
+        .service(hello_service)
         .build()
         .unwrap();
 }
