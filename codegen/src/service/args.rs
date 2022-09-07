@@ -10,8 +10,8 @@ pub struct Args {
 
 fn get_module_path(args: &[MetaNameValue], name: &str, def: syn::Path) -> syn::Path {
     args.iter()
-        .find(|arg| arg.path.is_ident("crate"))
-        .and_then(|arg| match arg.lit {
+        .find(|arg| arg.path.is_ident(name))
+        .and_then(|arg| match &arg.lit {
             Lit::Str(l) => Some(l),
             _ => {
                 let lit_type = crate::util::lit_type_as_string(&arg.lit);
@@ -32,8 +32,6 @@ fn get_module_path(args: &[MetaNameValue], name: &str, def: syn::Path) -> syn::P
 impl From<syn::AttributeArgs> for Args {
     fn from(args: syn::AttributeArgs) -> Self {
         const ARGS: &[&str] = &["crate", "tracing", "tower"];
-
-        let mut crate_path: syn::Path = syn::parse_str("::micro_tower").unwrap();
 
         let args: Vec<_> = args.into_iter().filter_map(|arg| match arg {
             NestedMeta::Meta(Meta::NameValue(name_value)) => Some(name_value),
@@ -61,12 +59,12 @@ impl From<syn::AttributeArgs> for Args {
         let tower_path = get_module_path(
             &args,
             "tower",
-            syn::parse2(quote::quote!(#crate_path::tower)).unwrap(),
+            syn::parse2(quote::quote!(#crate_path::export::tower)).unwrap(),
         );
         let tracing_path = get_module_path(
             &args,
             "tracing",
-            syn::parse2(quote::quote!(#crate_path::tracing)).unwrap(),
+            syn::parse2(quote::quote!(#crate_path::export::tracing)).unwrap(),
         );
 
         Self {
