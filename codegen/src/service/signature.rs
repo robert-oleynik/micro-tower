@@ -1,5 +1,6 @@
-use proc_macro::{Diagnostic, Level};
+use micro_tower_codegen_macros::diagnostic;
 use syn::parse::Parse;
+use syn::spanned::Spanned;
 
 /// Used to represent service signatures from service.
 pub struct Signature {
@@ -15,44 +16,19 @@ impl Parse for Signature {
         let pub_token: Option<syn::Token!(pub)> = input.parse()?;
         let signature: syn::Signature = input.parse()?;
         if let Some(token) = signature.constness {
-            Diagnostic::spanned(
-                vec![token.span.unwrap()],
-                Level::Error,
-                "Const function are not supported",
-            )
-            .emit()
+            diagnostic!(error at [token.span().unwrap()], "Const service functions are not supported");
         }
         if signature.asyncness.is_none() {
-            Diagnostic::spanned(
-                vec![signature.fn_token.span.unwrap()],
-                Level::Error,
-                "Service function must be async.",
-            )
-            .emit()
+            diagnostic!(error at [signature.span().unwrap()], "Service functions must be async");
         }
         if let Some(token) = signature.unsafety {
-            Diagnostic::spanned(
-                vec![token.span.unwrap()],
-                Level::Error,
-                "unsafe service functions are not supported",
-            )
-            .emit()
+            diagnostic!(error at [token.span().unwrap()], "Unsafe service functions are not supported");
         }
         if let Some(token) = signature.generics.lt_token {
-            Diagnostic::spanned(
-                vec![token.span.unwrap()],
-                Level::Error,
-                "Generics are not supported",
-            )
-            .emit()
+            diagnostic!(error at [token.span().unwrap()], "Generic service functions are not supported");
         }
         if let Some(token) = signature.variadic {
-            Diagnostic::spanned(
-                vec![token.dots.spans[0].unwrap()],
-                Level::Error,
-                "Variadic functions are not supported",
-            )
-            .emit()
+            diagnostic!(error at [token.span().unwrap()], "Variadic service functions are not supported");
         }
 
         Ok(Self {

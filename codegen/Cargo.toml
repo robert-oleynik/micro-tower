@@ -12,3 +12,6 @@ quote = "~1.0.21"
 [dependencies.syn]
 version = "~1.0.99"
 features = ["full"]
+
+[dependencies.micro-tower-codegen-macros]
+path = "../codegen-macros/"

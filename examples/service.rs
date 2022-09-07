@@ -1,5 +1,6 @@
 use micro_tower::prelude::*;
-use micro_tower::{runtime::Runtime, service::Service};
+use micro_tower::service::Service;
+use micro_tower::util::Buildable;
 use tracing::Level;
 use tracing_subscriber::FmtSubscriber;
 
@@ -18,26 +19,18 @@ async fn hello_args(_: (), mut service: Service<hello_world>) -> &'static str {
     service.ready().await.unwrap().call(()).await.unwrap()
 }
 
-micro_tower::codegen::manifest! {
-    Manifest: [
-        hello_args: 8080,
-        hello_world,
-        hello_world2
-    ]
-}
-
-fn main() {
+#[tokio::main]
+async fn main() {
     let subscriber = FmtSubscriber::builder()
         .with_max_level(Level::TRACE)
         .finish();
     tracing::subscriber::set_global_default(subscriber)
         .expect("Failed setting default logging subscriber.");
 
-    let rt = tokio::runtime::Builder::new_multi_thread().build().unwrap();
-    Runtime::builder()
-        .runtime(rt)
+    let hw_service = Service::<hello_world>::builder().build().unwrap();
+    let hw2_service = Service::<hello_world2>::builder().build().unwrap();
+    let ha_service = Service::<hello_args>::builder()
+        .service(hw_service)
         .build()
-        .unwrap()
-        .manifest(Manifest::create)
-        .run(Manifest::run);
+        .unwrap();
 }
