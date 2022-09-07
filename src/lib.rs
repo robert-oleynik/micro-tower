@@ -9,6 +9,9 @@ pub mod prelude {
 }
 
 pub use micro_tower_codegen as codegen;
-pub use tokio;
-pub use tower;
-pub use tracing;
+
+pub mod export {
+    pub use tokio;
+    pub use tower;
+    pub use tracing;
+}
