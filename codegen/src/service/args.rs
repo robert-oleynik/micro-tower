@@ -6,6 +6,7 @@ pub struct Args {
     pub crate_path: syn::Path,
     pub tower_path: syn::Path,
     pub tracing_path: syn::Path,
+    pub derive_builder_path: syn::Path,
 }
 
 fn get_module_path(args: &[MetaNameValue], name: &str, def: syn::Path) -> syn::Path {
@@ -31,7 +32,7 @@ fn get_module_path(args: &[MetaNameValue], name: &str, def: syn::Path) -> syn::P
 
 impl From<syn::AttributeArgs> for Args {
     fn from(args: syn::AttributeArgs) -> Self {
-        const ARGS: &[&str] = &["crate", "tracing", "tower"];
+        const ARGS: &[&str] = &["crate", "tracing", "tower", "derive_builder"];
 
         let args: Vec<_> = args.into_iter().filter_map(|arg| match arg {
             NestedMeta::Meta(Meta::NameValue(name_value)) => Some(name_value),
@@ -66,11 +67,17 @@ impl From<syn::AttributeArgs> for Args {
             "tracing",
             syn::parse2(quote::quote!(#crate_path::export::tracing)).unwrap(),
         );
+        let derive_builder_path = get_module_path(
+            &args,
+            "derive_builder",
+            syn::parse2(quote::quote!(#crate_path::export::derive_builder)).unwrap(),
+        );
 
         Self {
             crate_path,
             tower_path,
             tracing_path,
+            derive_builder_path,
         }
     }
 }

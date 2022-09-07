@@ -1,5 +1,6 @@
 use micro_tower::prelude::*;
 use micro_tower::service::Service;
+use micro_tower::util::Buildable;
 use tracing::Level;
 use tracing_subscriber::FmtSubscriber;
 
@@ -25,4 +26,11 @@ async fn main() {
         .finish();
     tracing::subscriber::set_global_default(subscriber)
         .expect("Failed setting default logging subscriber.");
+
+    let hw_service = Service::<hello_world>::builder().build().unwrap();
+    let hw2_service = Service::<hello_world2>::builder().build().unwrap();
+    let ha_service = Service::<hello_args>::builder()
+        .service(hw_service)
+        .build()
+        .unwrap();
 }

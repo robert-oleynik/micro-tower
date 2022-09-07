@@ -57,7 +57,11 @@ impl Service {
 
     pub fn generate_struct(&self) -> TokenStream {
         let pub_token = &self.items.signature.pub_token;
+        let crate_path = &self.args.crate_path;
+        let derive_builder_path = &self.args.derive_builder_path;
+        let tower_path = &self.args.tower_path;
         let name = &self.items.signature.ident;
+        let name_builder = syn::Ident::new(&format!("{name}Builder"), name.span());
 
         let fields = self
             .items
@@ -73,11 +77,54 @@ impl Service {
                 syn::FnArg::Typed(ty) => pat_type_to_field(ty),
             });
 
+        let field_names = self.items
+            .signature
+            .inputs
+            .iter()
+            .skip(1)
+            .filter_map(|arg| match arg {
+                syn::FnArg::Receiver(recv) => {
+                    diagnostic!(error at [recv.self_token.span().unwrap()], "`self` is not allowed in this context");
+                    None
+                },
+                syn::FnArg::Typed(ty) => Some(ty),
+            })
+            .filter_map(|arg| pat_ident(&arg.pat));
+
+        let field_names_lit = field_names
+            .clone()
+            .map(|ident| syn::LitStr::new(&ident.to_string(), ident.span()));
+
+        let p = derive_builder_path
+            .segments
+            .iter()
+            .map(|seg| format!("{}", seg.ident))
+            .fold(String::new(), |b, seg| b + &seg + "::");
+        let p = match derive_builder_path.leading_colon.is_some() {
+            true => "::".to_string() + &p,
+            false => p,
+        };
+        let error_ty_lit =
+            syn::LitStr::new(&(p + "UninitializedFieldError"), derive_builder_path.span());
+
         quote::quote!(
             #[allow(non_camel_case_types)]
-            #[derive(::std::clone::Clone)]
+            #[derive(::std::clone::Clone, #derive_builder_path::Builder)]
+            #[builder(build_fn(skip, error = #error_ty_lit))]
             #pub_token struct #name {
                 #( #fields ),*
+            }
+
+            impl #name_builder {
+                pub fn build(&mut self) -> Result<#crate_path::service::Service<#name>, #derive_builder_path::UninitializedFieldError> {
+                    let service = #name {
+                        #( #field_names: self.#field_names.clone()
+                            .ok_or(#derive_builder_path::UninitializedFieldError::new(#field_names_lit))? ),*
+                    };
+
+                    let service = #tower_path::ServiceBuilder::new().service(service);
+                    Ok(#crate_path::service::Service::from_service(service))
+                }
             }
         )
     }
@@ -98,12 +145,15 @@ impl Service {
     pub fn generate_buildable_impl(&self) -> TokenStream {
         let crate_path = &self.args.crate_path;
         let name = &self.items.signature.ident;
+        let name_builder = syn::Ident::new(&format!("{name}Builder"), name.span());
 
         quote::quote!(
             impl #crate_path::util::Buildable for #name {
-                type Builder = ();
+                type Builder = #name_builder;
 
-                fn builder() -> Self::Builder {}
+                fn builder() -> Self::Builder {
+                    #name_builder::default()
+                }
             }
         )
     }
