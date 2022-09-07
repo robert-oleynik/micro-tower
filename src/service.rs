@@ -1,6 +1,6 @@
 use std::ops::{Deref, DerefMut};
 
-use crate::utils::Buildable;
+use crate::util::Buildable;
 
 /// Wrapper around services.
 ///

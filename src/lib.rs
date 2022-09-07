@@ -1,6 +1,6 @@
 pub mod service;
 pub mod tcp;
-pub mod utils;
+pub mod util;
 
 pub mod prelude {
     pub use tower::Service as TowerService;
