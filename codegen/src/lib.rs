@@ -5,7 +5,7 @@ use service::Service;
 use syn::{parse_macro_input, spanned::Spanned};
 
 mod service;
-mod utils;
+mod util;
 
 #[proc_macro_attribute]
 pub fn service(attr: TokenStream, item: TokenStream) -> TokenStream {

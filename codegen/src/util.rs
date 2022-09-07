@@ -12,12 +12,3 @@ pub fn lit_type_as_string(lit: &Lit) -> &'static str {
         Lit::Verbatim(_) => todo!(),
     }
 }
-
-macro_rules! diagnostic {
-    (warn at [$( $lit:expr ),*], $tokens:tt) => {
-        ::proc_macro::Diagnostic::spanned(vec![$($lit),*], ::proc_macro::Level::Warn, format!($tokens)).emit()
-    };
-    (error at [$( $lit:expr ),*], $tokens:tt) => {
-        ::proc_macro::Diagnostic::spanned(vec![$($lit),*], ::proc_macro::Level::Error, format!($tokens)).emit()
-    };
-}
