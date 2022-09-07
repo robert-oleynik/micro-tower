@@ -3,7 +3,6 @@ pub mod tcp;
 pub mod utils;
 
 pub mod prelude {
-    pub use crate::service::Create;
     pub use tower::Service as TowerService;
     pub use tower::ServiceExt as TowerServiceExt;
 }

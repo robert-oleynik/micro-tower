@@ -1,24 +1,6 @@
-use std::any::TypeId;
 use std::ops::{Deref, DerefMut};
 
-use crate::utils::{Named, TypeRegistry};
-
-/// Used return a service of type `S` from a multi service container.
-pub trait GetByName<S> {
-    type Target;
-
-    /// Returns a reference to a service of type `S`.
-    fn get(&self) -> Option<Self::Target>;
-}
-
-/// Provides interface to create services. Used by `codegen`
-pub trait Create: crate::utils::Named {
-    type Service;
-
-    fn deps() -> Vec<TypeId>;
-
-    fn create(registry: &TypeRegistry) -> Self::Service;
-}
+use crate::utils::Buildable;
 
 /// Wrapper around services.
 ///
@@ -37,39 +19,38 @@ pub trait Create: crate::utils::Named {
 /// }
 /// ```
 #[derive(Clone)]
-pub struct Service<S: Create>
-where
-    S::Service: Sized,
-{
-    inner: S::Service,
+pub struct Service<S> {
+    inner: S,
 }
 
-impl<S: Create> Service<S> {
-    pub fn from_service(inner: S::Service) -> Self {
+impl<S> Service<S> {
+    pub fn from_service(inner: S) -> Self {
         Self { inner }
     }
 
-    pub fn into_inner(self) -> S::Service {
+    pub fn into_inner(self) -> S {
         self.inner
     }
 }
 
-impl<S: Create> Deref for Service<S> {
-    type Target = S::Service;
+impl<S: Buildable> Buildable for Service<S> {
+    type Builder = S::Builder;
+
+    fn builder() -> Self::Builder {
+        S::builder()
+    }
+}
+
+impl<S> Deref for Service<S> {
+    type Target = S;
 
     fn deref(&self) -> &Self::Target {
         &self.inner
     }
 }
 
-impl<S: Create> DerefMut for Service<S> {
+impl<S> DerefMut for Service<S> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.inner
-    }
-}
-
-impl<S: Create + 'static> Named for Service<S> {
-    fn name() -> TypeId {
-        TypeId::of::<S>()
     }
 }
