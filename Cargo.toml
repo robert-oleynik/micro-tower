@@ -12,7 +12,12 @@ members = [
 [dependencies]
 bytes = "~1.2.1"
 derive_builder = "~0.11.2"
+serde_json = "~1.0.85"
 tracing = "~0.1.36"
+
+[dependencies.serde]
+version = "~1.0.144"
+features = ["derive"]
 
 [dependencies.tracing-subscriber]
 version = "~0.3.15"
