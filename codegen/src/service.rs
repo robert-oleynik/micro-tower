@@ -180,8 +180,8 @@ impl Service {
             syn::parse2(quote::quote!(())).unwrap()
         };
 
-        let (response, ret) = match &self.items.signature.output {
-            syn::ReturnType::Default => (quote::quote!(()), quote::quote!(Ok(result))),
+        let (response, err, ret) = match &self.items.signature.output {
+            syn::ReturnType::Default => (quote::quote!(()), quote::quote!(::std::convert::Infallible), quote::quote!(Ok(result))),
             syn::ReturnType::Type(_, ty) => match **ty {
                 syn::Type::Path(ref path)
                     if path
@@ -194,18 +194,24 @@ impl Service {
                         .segments
                         .last()
                         .and_then(|last| match &last.arguments {
-                            syn::PathArguments::AngleBracketed(args) if args.args.len() == 2 || args.args.len() == 1 => {
+                            syn::PathArguments::AngleBracketed(args) if args.args.len() == 2 => {
                                 let ok_type = args.args.first().unwrap();
-                                Some((quote::quote!( #ok_type ), quote::quote!( Ok(result?) )))
+                                let err_type = args.args.iter().skip(1).next();
+                                Some((quote::quote!( #ok_type ), quote::quote!( #err_type ), quote::quote!( Ok(result?) )))
+                            }
+                            syn::PathArguments::AngleBracketed(args) if args.args.len() == 1 => {
+                                let ok_type = args.args.first().unwrap();
+                                diagnostic!(warn at [args.span().unwrap()], "Couldn't guess error type");
+                                Some((quote::quote!( #ok_type ), quote::quote!( ::std::convert::Infallible ), quote::quote!( Ok(result?) )))
                             },
                             _ => None
                         })
                         .unwrap_or_else(|| {
                             diagnostic!(error at [ty.span().unwrap()], "Failed to infer response type. Couldn't infer ok result type.");
-                            (quote::quote!(()), quote::quote!(Ok(result)))
+                            (quote::quote!(()), quote::quote!( ::std::convert::Infallible ), quote::quote!(Ok(result)))
                         })
                 }
-                _ => (quote::quote!(#ty), quote::quote!(Ok(result))),
+                _ => (quote::quote!(#ty), quote::quote!(::std::convert::Infallible), quote::quote!(Ok(result))),
             },
         };
 
@@ -226,7 +232,7 @@ impl Service {
         quote::quote!(
             impl #tower_path::Service<#request> for #name {
                 type Response = #response;
-                type Error = #tower_path::BoxError;
+                type Error = #err;
                 type Future = ::std::pin::Pin<::std::boxed::Box<dyn ::std::future::Future<Output = Result<Self::Response, Self::Error>> + Send>>;
 
                 fn poll_ready(&mut self, _: &mut ::std::task::Context<'_>) -> ::std::task::Poll<Result<(), Self::Error>> {

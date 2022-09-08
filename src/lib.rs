@@ -1,6 +1,7 @@
 #![feature(error_reporter)]
 
 pub mod api;
+pub mod runtime;
 pub mod service;
 pub mod tcp;
 pub mod util;

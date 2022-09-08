@@ -1,4 +1,5 @@
 use micro_tower::prelude::*;
+use micro_tower::runtime::Runtime;
 use micro_tower::service::Service;
 use micro_tower::util::Buildable;
 use tracing::Level;
@@ -28,9 +29,14 @@ async fn main() {
         .expect("Failed setting default logging subscriber.");
 
     let hello_service = Service::<hello_world>::builder().build().unwrap();
-    let world_service = Service::<hello_world2>::builder().build().unwrap();
+    let _world_service = Service::<hello_world2>::builder().build().unwrap();
     let args_service = Service::<hello_args>::builder()
         .service(hello_service)
         .build()
         .unwrap();
+
+    Runtime::default()
+        .bind_service(8000, args_service)
+        .run()
+        .await;
 }
