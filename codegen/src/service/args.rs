@@ -50,7 +50,7 @@ impl From<syn::AttributeArgs> for Args {
                 None
             }
         }).filter(|arg| {
-            if ARGS.iter().any(|p| arg.path.is_ident(p)) {
+            if !ARGS.iter().any(|p| arg.path.is_ident(p)) {
                 diagnostic!(warn at [arg.path.span().unwrap()], "Unknwon argument");
                 return false
             }
