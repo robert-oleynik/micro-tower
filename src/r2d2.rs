@@ -57,6 +57,14 @@ impl<C: ManageConnection> Connection<C> {
     }
 }
 
+impl<C: ManageConnection> Clone for Connection<C> {
+    fn clone(&self) -> Self {
+        Self {
+            pool: self.pool.clone(),
+        }
+    }
+}
+
 impl<'a, C: ManageConnection> Future for GetConnection<'a, C> {
     type Output = PooledConnection<C>;
 
