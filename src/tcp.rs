@@ -22,7 +22,7 @@ where
                 return;
             }
         };
-        tracing::info!("listening on port {port}");
+        tracing::info!(message = "listening", port);
 
         loop {
             let (mut socket, addr) = match listener.accept().await {
@@ -47,6 +47,7 @@ where
                         );
                         break;
                     }
+                    tracing::trace!(message = "read message", len = buf.len());
 
                     let service = &mut service;
                     let fut = async move {
@@ -63,6 +64,7 @@ where
                         }
                     };
 
+                    tracing::trace!(message = "send message", len = buf.len());
                     if let Err(err) = socket.write_buf(&mut buf).await {
                         tracing::error!(
                             message = "Failed to send response",

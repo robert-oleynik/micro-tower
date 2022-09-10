@@ -83,7 +83,9 @@ where
         let request: R = match serde_json::from_reader(&mut reader) {
             Ok(req) => req,
             Err(_) => {
-                let mut writer = reader.into_inner().writer();
+                let mut buf = reader.into_inner();
+                buf.clear();
+                let mut writer = buf.writer();
                 let response = Message::<S::Response>::BadRequest;
                 return match serde_json::to_writer(&mut writer, &response) {
                     Ok(_) => {
