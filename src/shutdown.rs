@@ -27,6 +27,7 @@ pub struct Controller {
     send: Sender<bool>,
 }
 
+#[derive(Clone)]
 pub struct Watcher {
     recv: Receiver<bool>,
 }

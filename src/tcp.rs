@@ -1,10 +1,14 @@
 use std::error::Report;
+use std::sync::atomic::{AtomicI64, Ordering};
+use std::sync::Arc;
 
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
 use tower::ServiceExt;
 
-pub fn run_service<S>(port: u16, service: S) -> tokio::task::JoinHandle<()>
+use crate::shutdown::Watcher;
+
+pub fn run_service<S>(port: u16, watcher: Watcher, service: S) -> tokio::task::JoinHandle<()>
 where
     S: tower::Service<bytes::BytesMut, Response = bytes::BytesMut> + Clone + Send + Sync + 'static,
     S::Future: Send,
@@ -24,8 +28,18 @@ where
         };
         tracing::info!(message = "listening", port);
 
+        let counter = Arc::new(AtomicI64::new(0));
+
         loop {
-            let (mut socket, addr) = match listener.accept().await {
+            let mut w = watcher.clone();
+            let res = tokio::select! {
+                res = listener.accept() => res,
+                _ = w.wait() => {
+                    tracing::debug!(message = "stop accepting new connections", port);
+                    break;
+                }
+            };
+            let (mut socket, addr) = match res {
                 Ok(result) => result,
                 Err(err) => {
                     tracing::error!(
@@ -35,12 +49,25 @@ where
                     break;
                 }
             };
+            counter.fetch_add(1, Ordering::AcqRel);
             tracing::trace!(message = "new connection", addr = format!("{addr}"));
+            let mut watcher = watcher.clone();
             let mut service = service.clone();
+            let counter = Arc::clone(&counter);
             tokio::spawn(async move {
                 let mut buf = bytes::BytesMut::new();
                 loop {
-                    if let Err(err) = socket.read_buf(&mut buf).await {
+                    let res = tokio::select!(
+                        res = socket.read_buf(&mut buf) => res,
+                        _ = watcher.wait() => {
+                            tracing::debug!(
+                                message = "received shutdown request",
+                                addr = format!("{addr}")
+                            );
+                            break;
+                        }
+                    );
+                    if let Err(err) = res {
                         tracing::error!(
                             message = "failed to read message",
                             error = format!("{err}")
@@ -74,7 +101,13 @@ where
                     }
                 }
                 tracing::trace!(message = "tcp session closed", addr = format!("{addr}"));
+                counter.fetch_sub(1, Ordering::AcqRel);
             });
+        }
+
+        while counter.load(Ordering::Acquire) > 0 {
+            tracing::trace!(message = "yield process while waiting for shutdown", port);
+            tokio::task::yield_now().await
         }
 
         tracing::trace!(message = "socket closed", port);
