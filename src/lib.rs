@@ -1,6 +1,7 @@
 #![feature(error_reporter)]
 
 pub mod api;
+pub mod connection;
 #[cfg(feature = "r2d2")]
 pub mod r2d2;
 pub mod runtime;

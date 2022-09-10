@@ -1,7 +1,8 @@
-use micro_tower::r2d2;
+use micro_tower::connection::Connection;
 use micro_tower::runtime::Runtime;
 use micro_tower::service::Service;
 use micro_tower::util::Buildable;
+use r2d2::Pool;
 use tracing::Level;
 use tracing_subscriber::FmtSubscriber;
 
@@ -27,7 +28,7 @@ impl ::r2d2::ManageConnection for ConnectionManagerStub {
 }
 
 #[micro_tower::codegen::service]
-async fn hello_connection(_: (), mut connection: r2d2::Connection<ConnectionManagerStub>) -> usize {
+async fn hello_connection(_: (), mut connection: Connection<Pool<ConnectionManagerStub>>) -> usize {
     let c = connection.get().await;
     c.0
 }
@@ -39,7 +40,7 @@ async fn main() {
         .finish();
     tracing::subscriber::set_global_default(subscriber).unwrap();
 
-    let conn = r2d2::Connection::new(ConnectionManagerStub).unwrap();
+    let conn = Connection::new(Pool::new(ConnectionManagerStub).unwrap());
 
     let service = Service::<hello_connection>::builder()
         .connection(conn)
