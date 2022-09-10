@@ -6,6 +6,7 @@ pub mod connection;
 pub mod r2d2;
 pub mod runtime;
 pub mod service;
+pub mod shutdown;
 pub mod tcp;
 pub mod util;
 
