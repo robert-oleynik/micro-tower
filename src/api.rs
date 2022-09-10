@@ -80,24 +80,23 @@ where
 
     fn call(&mut self, req: bytes::BytesMut) -> Self::Future {
         let mut reader = req.reader();
-        let request: R = match serde_json::from_reader(&mut reader) {
-            Ok(req) => req,
-            Err(_) => {
-                let mut buf = reader.into_inner();
-                buf.clear();
-                let mut writer = buf.writer();
-                let response = Message::<S::Response>::BadRequest;
-                return match serde_json::to_writer(&mut writer, &response) {
-                    Ok(_) => {
-                        let buf = writer.into_inner();
-                        Box::pin(async move { Ok(buf) })
-                    }
-                    Err(err) => {
-                        let err = Self::Error::Serialize(err);
-                        Box::pin(async move { Err(err) })
-                    }
-                };
-            }
+        let request: R = if let Ok(req) = serde_json::from_reader(&mut reader) {
+            req
+        } else {
+            let mut buf = reader.into_inner();
+            buf.clear();
+            let mut writer = buf.writer();
+            let response = Message::<S::Response>::BadRequest;
+            return match serde_json::to_writer(&mut writer, &response) {
+                Ok(_) => {
+                    let buf = writer.into_inner();
+                    Box::pin(async move { Ok(buf) })
+                }
+                Err(err) => {
+                    let err = Self::Error::Serialize(err);
+                    Box::pin(async move { Err(err) })
+                }
+            };
         };
         let buf = reader.into_inner();
         let mut inner = self.inner.clone();
@@ -118,7 +117,7 @@ where
             };
             let mut writer = buf.writer();
             serde_json::to_writer(&mut writer, &response).map_err(Self::Error::Serialize)?;
-            return Ok(writer.into_inner());
+            Ok(writer.into_inner())
         };
 
         Box::pin(fut)

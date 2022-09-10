@@ -196,13 +196,13 @@ impl Service {
                         .and_then(|last| match &last.arguments {
                             syn::PathArguments::AngleBracketed(args) if args.args.len() == 2 => {
                                 let ok_type = args.args.first().unwrap();
-                                let err_type = args.args.iter().skip(1).next();
-                                Some((quote::quote!( #ok_type ), quote::quote!( #err_type ), quote::quote!( Ok(result?) )))
+                                let err_type = args.args.iter().nth(1);
+                                Some((quote::quote!( #ok_type ), quote::quote!( #err_type ), quote::quote!( result )))
                             }
                             syn::PathArguments::AngleBracketed(args) if args.args.len() == 1 => {
                                 let ok_type = args.args.first().unwrap();
                                 diagnostic!(warn at [args.span().unwrap()], "Couldn't guess error type");
-                                Some((quote::quote!( #ok_type ), quote::quote!( ::std::convert::Infallible ), quote::quote!( Ok(result?) )))
+                                Some((quote::quote!( #ok_type ), quote::quote!( ::std::convert::Infallible ), quote::quote!( result )))
                             },
                             _ => None
                         })

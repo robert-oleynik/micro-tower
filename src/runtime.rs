@@ -1,3 +1,4 @@
+use std::error::Report;
 use std::sync::{Arc, Mutex};
 
 use serde::de::DeserializeOwned;
@@ -18,6 +19,10 @@ pub struct Runtime {
 
 impl Runtime {
     /// Bind a service against the tcp `port`.
+    ///
+    /// # Panics
+    ///
+    /// Will panic if failed to lock internal controller.
     pub fn bind_service<R, S>(&mut self, port: u16, service: Service<S>) -> &mut Self
     where
         R: DeserializeOwned + Send + Sync + 'static,
@@ -61,10 +66,22 @@ impl Runtime {
             self.shutdown_on(SignalKind::terminate()),
         ];
         for task in self.services.drain(0..) {
-            task.await.unwrap()
+            if let Err(err) = task.await {
+                let report = Report::new(err).pretty(true);
+                tracing::error!(
+                    messsage = "failed to join task",
+                    error = format!("{report:?}")
+                );
+            }
         }
         for signal in signal_handles {
-            signal.await.unwrap()
+            if let Err(err) = signal.await {
+                let report = Report::new(err).pretty(true);
+                tracing::error!(
+                    messsage = "failed to join signal",
+                    error = format!("{report:?}")
+                );
+            }
         }
     }
 }

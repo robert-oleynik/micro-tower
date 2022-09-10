@@ -52,6 +52,7 @@ impl Controller {
     ///     watcher.wait().await.unwrap()
     /// });
     /// ```
+    #[must_use]
     pub fn watcher(&self) -> Watcher {
         Watcher {
             recv: self.recv.clone(),
@@ -59,6 +60,10 @@ impl Controller {
     }
 
     /// Send a shutdown signal to a watcher.
+    ///
+    /// # Errors
+    ///
+    /// Will return error if all watcher were closed.
     pub fn send(&self) -> Result<(), Error> {
         self.send.send(true).map_err(|_| Error::Closed)
     }
@@ -81,6 +86,10 @@ impl Watcher {
     ///
     /// controller.send().unwrap();
     /// ```
+    ///
+    /// # Errors
+    ///
+    /// Will return error if sender was dropped.
     pub async fn wait(&mut self) -> Result<(), Error> {
         self.recv.changed().await.map_err(|_| Error::Closed)
     }
@@ -88,13 +97,13 @@ impl Watcher {
 
 #[cfg(test)]
 mod tests {
-    use std::time::Duration;
+    use std::{error::Report, time::Duration};
 
     use super::Controller;
 
     #[test]
     fn default() {
-        let _ = Controller::default();
+        let _conn = Controller::default();
     }
 
     #[tokio::test]
@@ -106,6 +115,9 @@ mod tests {
 
         tokio::time::sleep(Duration::from_secs(1)).await;
         controller.send().unwrap();
-        handle.await.unwrap()
+        if let Err(err) = handle.await {
+            let report = Report::new(err).pretty(true);
+            tracing::error!(message = "", error = format!("{report:?}"));
+        }
     }
 }

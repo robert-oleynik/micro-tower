@@ -2,7 +2,7 @@ use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-pub trait GetConnection {
+pub trait Get {
     type Output;
 
     /// Try to receive an active connection.
@@ -13,16 +13,16 @@ pub trait GetConnection {
 
 /// Used to manage external connections.
 #[derive(Clone)]
-pub struct Connection<C: GetConnection> {
+pub struct Connection<C: Get> {
     inner: C,
 }
 
 /// Single use future to fetch new connection from connection manger.
-pub struct GetConn<'a, C: GetConnection> {
+pub struct GetConn<'a, C: Get> {
     inner: Option<&'a mut C>,
 }
 
-impl<C: GetConnection> Connection<C> {
+impl<C: Get> Connection<C> {
     /// Wrap inner connection manager.
     ///
     /// # Parameters
@@ -39,22 +39,21 @@ impl<C: GetConnection> Connection<C> {
     }
 }
 
-impl<'a, C: GetConnection> Future for GetConn<'a, C> {
+impl<'a, C: Get> Future for GetConn<'a, C> {
     type Output = C::Output;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let c = match self
+        let c = if let Some(conn) = self
             .inner
             .as_mut()
             .expect("Unexpected poll after Poll::Ready")
             .try_get()
         {
-            Some(conn) => conn,
-            None => {
-                // TODO: Find a better solution
-                cx.waker().wake_by_ref();
-                return Poll::Pending;
-            }
+            conn
+        } else {
+            // TODO: Find a better solution
+            cx.waker().wake_by_ref();
+            return Poll::Pending;
         };
 
         self.inner.take();
@@ -65,12 +64,12 @@ impl<'a, C: GetConnection> Future for GetConn<'a, C> {
 
 #[cfg(test)]
 mod tests {
-    use super::{Connection, GetConnection};
+    use super::{Connection, Get};
 
     pub struct ConnectionStub(usize);
     pub struct ConnectionManager(usize);
 
-    impl GetConnection for ConnectionManager {
+    impl Get for ConnectionManager {
         type Output = ConnectionStub;
 
         fn try_get(&mut self) -> Option<Self::Output> {

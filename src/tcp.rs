@@ -107,7 +107,7 @@ where
 
         while counter.load(Ordering::Acquire) > 0 {
             tracing::trace!(message = "yield process while waiting for shutdown", port);
-            tokio::task::yield_now().await
+            tokio::task::yield_now().await;
         }
 
         tracing::trace!(message = "socket closed", port);

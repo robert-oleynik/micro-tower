@@ -47,5 +47,5 @@ async fn main() {
         .build()
         .unwrap();
 
-    Runtime::default().bind_service(8000, service).run().await
+    Runtime::default().bind_service(8000, service).run().await;
 }

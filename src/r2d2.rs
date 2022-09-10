@@ -1,8 +1,8 @@
 use r2d2::{ManageConnection, PooledConnection};
 
-use crate::connection::GetConnection;
+use crate::connection::Get;
 
-impl<C: ManageConnection> GetConnection for r2d2::Pool<C> {
+impl<C: ManageConnection> Get for r2d2::Pool<C> {
     type Output = PooledConnection<C>;
 
     fn try_get(&mut self) -> Option<Self::Output> {
@@ -39,7 +39,7 @@ mod tests {
 
     #[test]
     fn new() {
-        let _ = Connection::new(Pool::new(ConnectionManagerStub).unwrap());
+        let _conn = Connection::new(Pool::new(ConnectionManagerStub).unwrap());
     }
 
     #[tokio::test]
