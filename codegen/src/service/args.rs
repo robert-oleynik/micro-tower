@@ -7,6 +7,8 @@ pub struct Args {
     pub tower_path: syn::Path,
     pub tracing_path: syn::Path,
     pub derive_builder_path: syn::Path,
+    pub pool: Option<syn::LitInt>,
+    pub buffer: Option<syn::LitInt>,
 }
 
 fn get_module_path(args: &[MetaNameValue], name: &str, def: syn::Path) -> syn::Path {
@@ -31,9 +33,30 @@ fn get_module_path(args: &[MetaNameValue], name: &str, def: syn::Path) -> syn::P
         .unwrap_or(def)
 }
 
+fn get_num(args: &[MetaNameValue], name: &str) -> Option<syn::LitInt> {
+    args.iter()
+        .find(|arg| arg.path.is_ident(name))
+        .and_then(|arg| {
+            if let Lit::Int(int) = &arg.lit {
+                Some(int.clone())
+            } else {
+                let lit_type = crate::util::lit_type_as_string(&arg.lit);
+                diagnostic!(error at [arg.lit.span().unwrap()], "Expected a integer literal but found {lit_type}");
+                None
+            }
+        })
+}
+
 impl From<syn::AttributeArgs> for Args {
     fn from(args: syn::AttributeArgs) -> Self {
-        const ARGS: &[&str] = &["crate", "tracing", "tower", "derive_builder"];
+        const ARGS: &[&str] = &[
+            "crate",
+            "tracing",
+            "tower",
+            "derive_builder",
+            "buffer",
+            "pool",
+        ];
 
         let args: Vec<_> = args.into_iter().filter_map(|arg| match arg {
             NestedMeta::Meta(Meta::NameValue(name_value)) => Some(name_value),
@@ -74,11 +97,16 @@ impl From<syn::AttributeArgs> for Args {
             syn::parse2(quote::quote!(#crate_path::export::derive_builder)).unwrap(),
         );
 
+        let buffer = get_num(&args, "buffer");
+        let pool = get_num(&args, "pool");
+
         Self {
             crate_path,
             tower_path,
             tracing_path,
             derive_builder_path,
+            buffer,
+            pool,
         }
     }
 }
