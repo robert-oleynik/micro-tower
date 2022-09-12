@@ -3,7 +3,8 @@ use quote::__private::TokenStream;
 use syn::parse::Parse;
 use syn::spanned::Spanned;
 
-use self::signature::Signature;
+pub use args::Args;
+pub use signature::Signature;
 
 mod args;
 mod signature;
@@ -50,16 +51,15 @@ pub fn pat_type_to_field(arg: &syn::PatType) -> Option<syn::Field> {
 }
 
 impl Service {
-    pub fn new(args: syn::AttributeArgs, items: Items) -> Self {
-        let args = args::Args::from(args);
+    pub fn new(args: Args, items: Items) -> Self {
         Self { args, items }
     }
 
     pub fn generate_struct(&self) -> TokenStream {
         let pub_token = &self.items.signature.pub_token;
-        let crate_path = &self.args.crate_path;
-        let derive_builder_path = &self.args.derive_builder_path;
-        let tower_path = &self.args.tower_path;
+        let crate_path = self.args.crate_path();
+        let derive_builder_path = self.args.derive_builder_path();
+        let tower_path = self.args.tower_path();
         let name = &self.items.signature.ident;
         let name_builder = syn::Ident::new(&format!("{name}Builder"), name.span());
 
@@ -146,7 +146,7 @@ impl Service {
     }
 
     pub fn generate_buildable_impl(&self) -> TokenStream {
-        let crate_path = &self.args.crate_path;
+        let crate_path = &self.args.crate_path();
         let name = &self.items.signature.ident;
         let name_builder = syn::Ident::new(&format!("{name}Builder"), name.span());
 
@@ -162,8 +162,8 @@ impl Service {
     }
 
     pub fn generate_service_impl(&self) -> TokenStream {
-        let tower_path = &self.args.tower_path;
-        let tracing_path = &self.args.tracing_path;
+        let tower_path = &self.args.tower_path();
+        let tracing_path = &self.args.tracing_path();
         let name = &self.items.signature.ident;
         let name_lit = syn::LitStr::new(&name.to_string(), name.span());
 
