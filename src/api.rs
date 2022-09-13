@@ -19,11 +19,11 @@ pub enum Message<T> {
 }
 
 #[derive(Debug, thiserror::Error)]
-pub enum Error<E: std::error::Error> {
+pub enum Error {
     #[error("Failed to serialize message")]
     Serialize(#[source] serde_json::Error),
-    #[error("Failed")]
-    Service(#[source] E),
+    #[error("Failed failed")]
+    Service,
 }
 
 pub struct InnerService<R, S> {
@@ -41,8 +41,7 @@ impl<R, S> Default for Layer<R, S> {
         Self { _p: PhantomData }
     }
 }
-
-impl<R, S: Clone> tower::Layer<S> for Layer<R, S> {
+impl<R, S> tower::Layer<S> for Layer<R, S> {
     type Service = InnerService<R, S>;
 
     fn layer(&self, inner: S) -> Self::Service {
@@ -71,11 +70,19 @@ where
     S::Error: std::error::Error + Send + Sync + 'static,
 {
     type Response = bytes::BytesMut;
-    type Error = Error<S::Error>;
+    type Error = Error;
     type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send>>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        self.inner.poll_ready(cx).map_err(Self::Error::Service)
+        match self.inner.poll_ready(cx) {
+            Poll::Ready(Ok(_)) => Poll::Ready(Ok(())),
+            Poll::Ready(Err(err)) => {
+                let report = Report::new(err).pretty(true);
+                tracing::error!("service failed. {report:?}");
+                Poll::Ready(Err(Error::Service))
+            }
+            Poll::Pending => Poll::Pending,
+        }
     }
 
     fn call(&mut self, req: bytes::BytesMut) -> Self::Future {

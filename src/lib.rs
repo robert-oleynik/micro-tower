@@ -1,4 +1,5 @@
 #![feature(error_reporter)]
+#![feature(box_into_inner)]
 
 pub mod api;
 pub mod connection;

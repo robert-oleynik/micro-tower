@@ -8,6 +8,7 @@ use tokio::task::JoinHandle;
 use tower::Layer;
 
 use crate::api;
+use crate::prelude::Buildable;
 use crate::service::Service;
 use crate::shutdown::Controller;
 
@@ -26,10 +27,12 @@ impl Runtime {
     pub fn bind_service<R, S>(&mut self, port: u16, service: Service<S>) -> &mut Self
     where
         R: DeserializeOwned + Send + Sync + 'static,
-        S: tower::Service<R> + Clone + Send + Sync + 'static,
-        S::Error: std::error::Error + Sync + Send,
-        S::Future: Send,
-        S::Response: Serialize,
+        S: Buildable,
+        <S as Buildable>::Target: tower::Service<R> + Clone + Send + Sync + 'static,
+        <<S as Buildable>::Target as tower::Service<R>>::Error:
+            std::error::Error + Send + Sync + 'static,
+        <<S as Buildable>::Target as tower::Service<R>>::Future: Send,
+        <<S as Buildable>::Target as tower::Service<R>>::Response: Serialize,
     {
         let layer = api::Layer::default();
         let service = service.into_inner();

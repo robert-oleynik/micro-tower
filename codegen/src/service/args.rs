@@ -1,5 +1,4 @@
 use micro_tower_codegen_macros::diagnostic;
-use quote::__private::Span;
 
 #[derive(darling::FromMeta)]
 pub struct Args {
