@@ -3,7 +3,8 @@ use quote::__private::TokenStream;
 use syn::parse::Parse;
 use syn::spanned::Spanned;
 
-use self::signature::Signature;
+pub use args::Args;
+pub use signature::Signature;
 
 mod args;
 mod signature;
@@ -50,16 +51,49 @@ pub fn pat_type_to_field(arg: &syn::PatType) -> Option<syn::Field> {
 }
 
 impl Service {
-    pub fn new(args: syn::AttributeArgs, items: Items) -> Self {
-        let args = args::Args::from(args);
+    pub fn new(args: Args, items: Items) -> Self {
         Self { args, items }
+    }
+
+    fn request_type(&self) -> syn::Type {
+        if let Some(ty) =  self.items.signature.inputs.first().and_then(|arg| match arg {
+            syn::FnArg::Receiver(recv) => {
+                diagnostic!(error at [recv.self_token.span().unwrap()], "`self` is not allowed in this context");
+                None
+            },
+            syn::FnArg::Typed(ty) => Some((*ty.ty).clone()),
+        }) {
+            ty
+        } else {
+            diagnostic!(error at [self.items.signature.inputs.span().unwrap()], "No request type specified (Reason: Missing first parameter)");
+            syn::parse2(quote::quote!(())).unwrap()
+        }
+    }
+
+    fn requires_error_wrapping(&self) -> bool {
+        self.args.buffer_len().is_some()
+    }
+
+    fn service_type(&self) -> TokenStream {
+        let name = &self.items.signature.ident;
+        let crate_path = self.args.crate_path();
+        let tower_path = self.args.tower_path();
+        let request = self.request_type();
+        let mut result = quote::quote!( #name );
+        if self.args.buffer_len().is_some() {
+            result = quote::quote!( #tower_path::buffer::Buffer<#result, #request> )
+        }
+        if self.requires_error_wrapping() {
+            result = quote::quote!( #crate_path::service::map_error::Service<#request, #result> )
+        }
+        result
     }
 
     pub fn generate_struct(&self) -> TokenStream {
         let pub_token = &self.items.signature.pub_token;
-        let crate_path = &self.args.crate_path;
-        let derive_builder_path = &self.args.derive_builder_path;
-        let tower_path = &self.args.tower_path;
+        let crate_path = self.args.crate_path();
+        let derive_builder_path = self.args.derive_builder_path();
+        let tower_path = self.args.tower_path();
         let name = &self.items.signature.ident;
         let name_builder = syn::Ident::new(&format!("{name}Builder"), name.span());
 
@@ -110,6 +144,18 @@ impl Service {
         let error_ty_lit =
             syn::LitStr::new(&(p + "UninitializedFieldError"), derive_builder_path.span());
 
+        let buffer = if let Some(buffer) = self.args.buffer_len() {
+            quote::quote!( .buffer(#buffer) )
+        } else {
+            quote::quote!()
+        };
+
+        let map_err = if self.requires_error_wrapping() {
+            quote::quote!( .layer(#crate_path::service::map_error::Layer::default()) )
+        } else {
+            quote::quote!()
+        };
+
         quote::quote!(
             #[allow(non_camel_case_types)]
             #[derive(::std::clone::Clone, #derive_builder_path::Builder)]
@@ -125,7 +171,10 @@ impl Service {
                             .ok_or(#derive_builder_path::UninitializedFieldError::new(#field_names_lit))? ),*
                     };
 
-                    let service = #tower_path::ServiceBuilder::new().service(service);
+                    let service = #tower_path::ServiceBuilder::new()
+                        #map_err
+                        #buffer
+                        .service(service);
                     Ok(#crate_path::service::Service::from_service(service))
                 }
             }
@@ -146,12 +195,14 @@ impl Service {
     }
 
     pub fn generate_buildable_impl(&self) -> TokenStream {
-        let crate_path = &self.args.crate_path;
+        let crate_path = &self.args.crate_path();
         let name = &self.items.signature.ident;
         let name_builder = syn::Ident::new(&format!("{name}Builder"), name.span());
+        let service = self.service_type();
 
         quote::quote!(
             impl #crate_path::util::Buildable for #name {
+                type Target = #service;
                 type Builder = #name_builder;
 
                 fn builder() -> Self::Builder {
@@ -162,23 +213,12 @@ impl Service {
     }
 
     pub fn generate_service_impl(&self) -> TokenStream {
-        let tower_path = &self.args.tower_path;
-        let tracing_path = &self.args.tracing_path;
+        let tower_path = &self.args.tower_path();
+        let tracing_path = &self.args.tracing_path();
         let name = &self.items.signature.ident;
         let name_lit = syn::LitStr::new(&name.to_string(), name.span());
 
-        let request: syn::Type = if let Some(ty) =  self.items.signature.inputs.first().and_then(|arg| match arg {
-            syn::FnArg::Receiver(recv) => {
-                diagnostic!(error at [recv.self_token.span().unwrap()], "`self` is not allowed in this context");
-                None
-            },
-            syn::FnArg::Typed(ty) => Some((*ty.ty).clone()),
-        }) {
-            ty
-        } else {
-            diagnostic!(error at [self.items.signature.inputs.span().unwrap()], "No request type specified (Reason: Missing first parameter)");
-            syn::parse2(quote::quote!(())).unwrap()
-        };
+        let request = self.request_type();
 
         let (response, err, ret) = match &self.items.signature.output {
             syn::ReturnType::Default => (quote::quote!(()), quote::quote!(::std::convert::Infallible), quote::quote!(Ok(result))),

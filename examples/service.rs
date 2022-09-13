@@ -1,7 +1,6 @@
 use micro_tower::prelude::*;
 use micro_tower::runtime::Runtime;
 use micro_tower::service::Service;
-use micro_tower::util::Buildable;
 use tracing::Level;
 use tracing_subscriber::FmtSubscriber;
 

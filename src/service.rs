@@ -1,6 +1,10 @@
 use std::ops::{Deref, DerefMut};
 
+mod error;
+pub mod map_error;
+
 use crate::util::Buildable;
+pub use error::Error;
 
 /// Wrapper around services.
 ///
@@ -19,21 +23,22 @@ use crate::util::Buildable;
 /// }
 /// ```
 #[derive(Clone)]
-pub struct Service<S> {
-    inner: S,
+pub struct Service<S: Buildable> {
+    inner: S::Target,
 }
 
-impl<S> Service<S> {
-    pub fn from_service(inner: S) -> Self {
+impl<S: Buildable> Service<S> {
+    pub fn from_service(inner: S::Target) -> Self {
         Self { inner }
     }
 
-    pub fn into_inner(self) -> S {
+    pub fn into_inner(self) -> S::Target {
         self.inner
     }
 }
 
 impl<S: Buildable> Buildable for Service<S> {
+    type Target = S::Target;
     type Builder = S::Builder;
 
     fn builder() -> Self::Builder {
@@ -41,15 +46,15 @@ impl<S: Buildable> Buildable for Service<S> {
     }
 }
 
-impl<S> Deref for Service<S> {
-    type Target = S;
+impl<S: Buildable> Deref for Service<S> {
+    type Target = <S as Buildable>::Target;
 
     fn deref(&self) -> &Self::Target {
         &self.inner
     }
 }
 
-impl<S> DerefMut for Service<S> {
+impl<S: Buildable> DerefMut for Service<S> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.inner
     }
