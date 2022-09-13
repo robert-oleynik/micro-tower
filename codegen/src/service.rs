@@ -84,7 +84,7 @@ impl Service {
             result = quote::quote!( #tower_path::buffer::Buffer<#result, #request> )
         }
         if self.requires_error_wrapping() {
-            result = quote::quote!( #crate_path::service::MapErrorService<#request, #result> )
+            result = quote::quote!( #crate_path::service::map_error::Service<#request, #result> )
         }
         result
     }
@@ -151,7 +151,7 @@ impl Service {
         };
 
         let map_err = if self.requires_error_wrapping() {
-            quote::quote!( .layer(#crate_path::service::MapErrorLayer::default()) )
+            quote::quote!( .layer(#crate_path::service::map_error::Layer::default()) )
         } else {
             quote::quote!()
         };
