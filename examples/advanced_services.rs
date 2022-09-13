@@ -1,7 +1,6 @@
 use micro_tower::prelude::*;
 use micro_tower::runtime::Runtime;
 use micro_tower::{codegen::service, service::Service};
-use serde::{Deserialize, Serialize};
 
 // #[derive(Deserialize, Serialize)]
 // pub struct Request {}

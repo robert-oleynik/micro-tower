@@ -19,11 +19,11 @@ pub enum Message<T> {
 }
 
 #[derive(Debug, thiserror::Error)]
-pub enum Error {
+pub enum Error<E: std::error::Error> {
     #[error("Failed to serialize message")]
     Serialize(#[source] serde_json::Error),
-    #[error("Failed failed")]
-    Service,
+    #[error("Service failed")]
+    Service(#[source] E),
 }
 
 pub struct InnerService<R, S> {
@@ -70,17 +70,13 @@ where
     S::Error: std::error::Error + Send + Sync + 'static,
 {
     type Response = bytes::BytesMut;
-    type Error = Error;
+    type Error = Error<S::Error>;
     type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send>>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         match self.inner.poll_ready(cx) {
             Poll::Ready(Ok(_)) => Poll::Ready(Ok(())),
-            Poll::Ready(Err(err)) => {
-                let report = Report::new(err).pretty(true);
-                tracing::error!("service failed. {report:?}");
-                Poll::Ready(Err(Error::Service))
-            }
+            Poll::Ready(Err(err)) => Poll::Ready(Err(Error::Service(err))),
             Poll::Pending => Poll::Pending,
         }
     }

@@ -6,15 +6,12 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
 use tower::ServiceExt;
 
-use crate::api;
 use crate::shutdown::Watcher;
 
 pub fn run_service<S>(port: u16, watcher: Watcher, service: S) -> tokio::task::JoinHandle<()>
 where
-    S: tower::Service<bytes::BytesMut, Response = bytes::BytesMut, Error = api::Error>
-        + Clone
-        + Send
-        + 'static,
+    S: tower::Service<bytes::BytesMut, Response = bytes::BytesMut> + Clone + Send + 'static,
+    S::Error: std::error::Error + Send + 'static,
     S::Future: Send,
 {
     let fut = async move {

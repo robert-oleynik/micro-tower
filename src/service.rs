@@ -1,45 +1,13 @@
-use std::{
-    future::Future,
-    marker::PhantomData,
-    ops::{Deref, DerefMut},
-    pin::Pin,
-    task::{Context, Poll},
-};
+use std::future::Future;
+use std::marker::PhantomData;
+use std::ops::{Deref, DerefMut};
+use std::pin::Pin;
+use std::task::{Context, Poll};
+
+mod error;
 
 use crate::util::Buildable;
-
-#[derive(Debug, thiserror::Error)]
-#[error("service failure")]
-pub enum Error<E: std::error::Error> {
-    #[error("service failure")]
-    Service { source: Box<E> },
-    #[error("buffered service failure")]
-    BufferedService {
-        source: Box<tower::buffer::error::ServiceError>,
-    },
-    #[error("buffer failure")]
-    Buffer {
-        source: Box<tower::buffer::error::Closed>,
-    },
-    #[error("unknown error")]
-    Unknown,
-}
-
-impl<E: std::error::Error> From<tower::BoxError> for Error<E> {
-    fn from(err: tower::BoxError) -> Self {
-        let err = match err.downcast::<tower::buffer::error::Closed>() {
-            Ok(closed) => return Self::Buffer { source: closed },
-            Err(err) => err,
-        };
-        let _ = match err.downcast::<tower::buffer::error::ServiceError>() {
-            Ok(err) => return Self::BufferedService { source: err },
-            Err(err) => err,
-        };
-
-        Self::Unknown
-    }
-}
-
+pub use error::Error;
 pub struct MapErrorService<R, S> {
     inner: S,
     _p: PhantomData<R>,
@@ -81,7 +49,7 @@ where
     S::Error: std::error::Error,
 {
     type Response = S::Response;
-    type Error = crate::service::Error<S::Error>;
+    type Error = crate::service::Error;
     type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send>>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
