@@ -4,7 +4,6 @@ use micro_tower_codegen_macros::diagnostic;
 pub struct Args {
     #[darling(rename = "crate")]
     crate_path: Option<syn::LitStr>,
-    pool: Option<syn::LitInt>,
     buffer: Option<syn::LitInt>,
 }
 
@@ -24,13 +23,6 @@ impl Args {
 
     /// Verify inputs and send errors/warnings.
     pub fn verify(&self) -> syn::parse::Result<bool> {
-        if let Some(pool) = &self.pool {
-            let pool_size: usize = pool.base10_parse()?;
-            if pool_size == 0 {
-                diagnostic!(error at [pool.span().unwrap()], "expected pool size unequals `0`");
-            }
-        }
-
         if let Some(buffer) = &self.buffer {
             let buf_size: usize = buffer.base10_parse()?;
             if buf_size == 0 {
@@ -66,10 +58,6 @@ impl Args {
     pub fn tracing_path(&self) -> syn::Path {
         let path = self.crate_path();
         syn::parse2(quote::quote!( #path :: export :: tracing )).unwrap()
-    }
-
-    pub fn pool_size(&self) -> Option<&syn::LitInt> {
-        self.pool.as_ref()
     }
 
     pub fn buffer_len(&self) -> Option<&syn::LitInt> {

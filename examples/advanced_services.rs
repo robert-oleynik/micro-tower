@@ -33,5 +33,5 @@ async fn main() {
     Runtime::default()
         .bind_service(8080, buffered_service)
         .run()
-        .await;
+        .await
 }
