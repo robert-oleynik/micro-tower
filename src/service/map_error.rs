@@ -42,7 +42,6 @@ impl<R, S: Clone> Clone for Service<R, S> {
 impl<R, S: tower::Service<R, Error = tower::BoxError>> tower::Service<R> for Service<R, S>
 where
     S::Future: Send + 'static,
-    S::Error: std::error::Error,
 {
     type Response = S::Response;
     type Error = crate::service::Error;

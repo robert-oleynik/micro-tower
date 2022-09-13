@@ -39,3 +39,17 @@ impl std::error::Error for Error {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::marker::PhantomData;
+
+    struct IsSized<S: ?Sized> {
+        p: PhantomData<S>,
+    }
+
+    #[test]
+    fn error_sized() {
+        let _ = IsSized::<super::Error> { p: PhantomData };
+    }
+}
