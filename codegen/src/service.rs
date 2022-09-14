@@ -57,6 +57,12 @@ pub fn generate(args: Args, items: Items) -> TokenStream {
         quote::quote!()
     };
 
+    let concurrency = if let Some(concurrency) = args.concurrency_limit() {
+        quote::quote!( .concurrency_limit(#concurrency) )
+    } else {
+        quote::quote!()
+    };
+
     let map_err = if args.require_map_error() {
         quote::quote!( .layer(#crate_path::service::map_error::Layer::default()) )
     } else {
@@ -72,6 +78,10 @@ pub fn generate(args: Args, items: Items) -> TokenStream {
     let error = items.error_type();
 
     let mut service_type = quote::quote!( #name );
+    if args.concurrency_limit().is_some() {
+        service_type =
+            quote::quote!( #tower_path::limit::concurrency::ConcurrencyLimit<#service_type> );
+    }
     if args.buffer_len().is_some() {
         service_type = quote::quote!( #tower_path::buffer::Buffer<#service_type, #request> );
     }
@@ -105,6 +115,7 @@ pub fn generate(args: Args, items: Items) -> TokenStream {
                 let service = #tower_path::ServiceBuilder::new()
                     #map_err
                     #buffer
+                    #concurrency
                     .service(service);
                 Ok(#crate_path::service::Service::from_service(service))
             }

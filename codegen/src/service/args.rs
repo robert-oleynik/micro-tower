@@ -1,10 +1,12 @@
 use micro_tower_codegen_macros::diagnostic;
+use quote::__private::Span;
 
 #[derive(darling::FromMeta)]
 pub struct Args {
     #[darling(rename = "crate")]
     crate_path: Option<syn::LitStr>,
     buffer: Option<syn::LitInt>,
+    concurrency: Option<syn::LitInt>,
 }
 
 impl Args {
@@ -62,6 +64,20 @@ impl Args {
 
     pub fn buffer_len(&self) -> Option<&syn::LitInt> {
         self.buffer.as_ref()
+    }
+
+    /// Returns the maximum number of concurrent requests. Will return literal `1` if `buffer` is
+    /// set but `concurrency` option is not set.
+    pub fn concurrency_limit(&self) -> Option<syn::LitInt> {
+        self.concurrency
+            .as_ref()
+            .map(syn::LitInt::clone)
+            .or_else(|| {
+                if self.buffer.is_some() {
+                    return Some(syn::LitInt::new("1", Span::call_site()));
+                }
+                None
+            })
     }
 
     /// Returns true if any option is enabled which modifies the error type.

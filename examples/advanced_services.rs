@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use micro_tower::prelude::*;
 use micro_tower::runtime::Runtime;
 use micro_tower::{codegen::service, service::Service};
@@ -15,6 +17,7 @@ pub struct Response {
 
 #[service(buffer = 64)]
 async fn buffered_service(_req: Request) -> Response {
+    tokio::time::sleep(Duration::from_secs(1)).await;
     Response {
         message: String::from("Hello, World!"),
     }
