@@ -1,4 +1,5 @@
 #![feature(error_reporter)]
+#![feature(box_into_inner)]
 
 pub mod api;
 pub mod connection;
@@ -11,6 +12,7 @@ pub mod tcp;
 pub mod util;
 
 pub mod prelude {
+    pub use crate::util::Buildable;
     pub use tower::Service as TowerService;
     pub use tower::ServiceExt as TowerServiceExt;
 }

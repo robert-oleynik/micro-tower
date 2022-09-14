@@ -10,18 +10,19 @@ use crate::shutdown::Watcher;
 
 pub fn run_service<S>(port: u16, watcher: Watcher, service: S) -> tokio::task::JoinHandle<()>
 where
-    S: tower::Service<bytes::BytesMut, Response = bytes::BytesMut> + Clone + Send + Sync + 'static,
+    S: tower::Service<bytes::BytesMut, Response = bytes::BytesMut> + Clone + Send + 'static,
+    S::Error: std::error::Error + Send + 'static,
     S::Future: Send,
-    S::Error: std::error::Error + Send,
 {
     let fut = async move {
         let listener = match TcpListener::bind(format!("127.0.0.1:{port}")).await {
             Ok(listener) => listener,
             Err(error) => {
+                let report = Report::new(error).pretty(true);
                 tracing::error!(
                     message = "failed to bind socket",
                     port,
-                    error = format!("{error}")
+                    error = format!("{report:?}")
                 );
                 return;
             }
@@ -42,10 +43,8 @@ where
             let (mut socket, addr) = match res {
                 Ok(result) => result,
                 Err(err) => {
-                    tracing::error!(
-                        message = "failed to accept new connection",
-                        error = format!("{err}")
-                    );
+                    let report = Report::new(err).pretty(true);
+                    tracing::error!("failed to accept new connection {report:?}");
                     break;
                 }
             };
@@ -68,10 +67,8 @@ where
                         }
                     );
                     if let Err(err) = res {
-                        tracing::error!(
-                            message = "failed to read message",
-                            error = format!("{err}")
-                        );
+                        let report = Report::new(err).pretty(true);
+                        tracing::error!("failed to read message {report:?}");
                         break;
                     }
                     tracing::trace!(message = "read message", len = buf.len());
@@ -93,10 +90,8 @@ where
 
                     tracing::trace!(message = "send message", len = buf.len());
                     if let Err(err) = socket.write_buf(&mut buf).await {
-                        tracing::error!(
-                            message = "Failed to send response",
-                            error = format!("{err}")
-                        );
+                        let report = Report::new(err).pretty(true);
+                        tracing::error!("Failed to send response {report:?}");
                         break;
                     }
                 }
