@@ -17,7 +17,8 @@ pub use items::Items;
 /// - a struct with name of service signature
 /// - a builder to build this struct. The builder will create a setter for each service and
 ///   connection specified.
-/// - a implementation of [`micro_tower::util::Buildable`]
+/// - an implementation of [`micro_tower::util::Buildable`]
+/// - an implementation of [`micro_tower::tower::Service`]
 pub fn generate(args: Args, items: Items) -> TokenStream {
     let crate_path = args.crate_path();
     let derive_builder_path = args.derive_builder_path();
