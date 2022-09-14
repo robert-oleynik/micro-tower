@@ -17,7 +17,7 @@ pub struct Response {
 
 #[service(buffer = 64)]
 async fn buffered_service(_req: Request) -> Response {
-    tokio::time::sleep(Duration::from_secs(1)).await;
+    tokio::time::sleep(Duration::from_secs(5)).await;
     Response {
         message: String::from("Hello, World!"),
     }

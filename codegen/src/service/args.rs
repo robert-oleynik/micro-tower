@@ -1,5 +1,4 @@
 use micro_tower_codegen_macros::diagnostic;
-use quote::__private::Span;
 
 #[derive(darling::FromMeta)]
 pub struct Args {
@@ -66,18 +65,24 @@ impl Args {
         self.buffer.as_ref()
     }
 
-    /// Returns the maximum number of concurrent requests. Will return literal `1` if `buffer` is
-    /// set but `concurrency` option is not set.
-    pub fn concurrency_limit(&self) -> Option<syn::LitInt> {
-        self.concurrency
-            .as_ref()
-            .map(syn::LitInt::clone)
-            .or_else(|| {
-                if self.buffer.is_some() {
-                    return Some(syn::LitInt::new("1", Span::call_site()));
-                }
+    /// Returns the concurrency limit (if specified). Will return `None` if `buffer` option is set
+    /// although `concurrency` option is set.
+    ///
+    /// # Compiler Warning
+    ///
+    /// Will emit an compiler warning if `buffer` and `concurrency` option are set together.
+    pub fn concurrency_limit(&self) -> Option<&syn::LitInt> {
+        self.concurrency.as_ref().and_then(|opt| {
+            if self.buffer.is_some() {
+                diagnostic!(
+                    warn at [opt.span().unwrap()],
+                    "Cannot set `concurrency` option if `buffer` option is set"
+                );
                 None
-            })
+            } else {
+                Some(opt)
+            }
+        })
     }
 
     /// Returns true if any option is enabled which modifies the error type.
