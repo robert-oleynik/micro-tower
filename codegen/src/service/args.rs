@@ -63,4 +63,9 @@ impl Args {
     pub fn buffer_len(&self) -> Option<&syn::LitInt> {
         self.buffer.as_ref()
     }
+
+    /// Returns true if any option is enabled which modifies the error type.
+    pub fn require_map_error(&self) -> bool {
+        self.buffer.is_some()
+    }
 }
