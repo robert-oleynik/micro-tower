@@ -1,3 +1,6 @@
+use std::convert::Infallible;
+use std::future::Future;
+use std::pin::Pin;
 use std::time::Duration;
 
 use micro_tower::prelude::*;
@@ -33,8 +36,27 @@ async fn main() {
 
     let buffered_service = Service::<buffered_service>::builder().build().unwrap();
 
+    let pool_service_maker = tower::ServiceBuilder::new().service_fn(
+        |_: ()| -> Pin<Box<dyn Future<Output = Result<_, Infallible>> + Send>> {
+            let service = Service::<buffered_service>::builder()
+                .build()
+                .unwrap()
+                .into_inner();
+            let service = tower::load::PendingRequests::new(
+                service,
+                tower::load::CompleteOnResponse::default(),
+            );
+            Box::pin(async move { Ok(service) })
+        },
+    );
+    let pool = tower::balance::pool::Builder::new()
+        .max_services(Some(16))
+        .build(pool_service_maker, ());
+    let pooled_service = tower::ServiceBuilder::new().buffer(64).service(pool);
+
     Runtime::default()
         .bind_service(8080, buffered_service)
+        .bind_service(8000, pooled_service)
         .run()
         .await
 }
