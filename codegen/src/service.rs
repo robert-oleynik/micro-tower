@@ -7,7 +7,7 @@ pub fn generate(args: args::Args, decl: decl::Declaration) -> TokenStream {
     decl.emit_errors();
     let crate_path = args.crate_path();
     let name = decl.name();
-    let _name_str = args.name_str(name);
+    let name_str = args.name_str(name);
     let pub_token = decl.pub_token();
 
     let request_arg = decl.request_arg();
@@ -29,7 +29,12 @@ pub fn generate(args: args::Args, decl: decl::Declaration) -> TokenStream {
             }
 
             fn call(&mut self, #request_arg) -> Self::Future {
+                use #crate_path::prelude::Instrument;
+
                 let fut = async move #block;
+
+                let fut = fut.instrument(#crate_path::tracing::info_span!(#name_str));
+
                 Box::pin(fut)
             }
         }
