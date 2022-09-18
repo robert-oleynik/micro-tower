@@ -1,9 +1,11 @@
 use darling::FromMeta;
 
+use crate::util::diagnostic;
+
 #[derive(FromMeta)]
 pub struct Args {
     #[darling(rename = "crate")]
-    crate_path: Option<String>,
+    crate_path: Option<syn::LitStr>,
 }
 
 impl Args {
@@ -11,10 +13,10 @@ impl Args {
     pub fn crate_path(&self) -> syn::Path {
         self.crate_path
             .as_ref()
-            .and_then(|p| match syn::parse_str::<syn::Path>(&p) {
+            .and_then(|p| match syn::parse_str::<syn::Path>(&p.value()) {
                 Ok(path) => Some(path),
                 Err(err) => {
-                    // TODO: emit compile error
+                    diagnostic::emit_error(p.span(), format!("{err}"));
                     None
                 }
             })
