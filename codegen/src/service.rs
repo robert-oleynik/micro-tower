@@ -14,6 +14,8 @@ pub fn generate(args: args::Args, decl: decl::Declaration) -> TokenStream {
     let request_ty = decl.request_type();
     let response_ty = decl.response_type();
 
+    let block = decl.block();
+
     quote::quote!(
         #pub_token struct #name {}
 
@@ -27,7 +29,8 @@ pub fn generate(args: args::Args, decl: decl::Declaration) -> TokenStream {
             }
 
             fn call(&mut self, #request_arg) -> Self::Future {
-                todo!()
+                let fut = async move #block;
+                Box::pin(fut)
             }
         }
     )

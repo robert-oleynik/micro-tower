@@ -110,6 +110,10 @@ impl Declaration {
             },
         }
     }
+
+    pub fn block(&self) -> &syn::Block {
+        self.block.deref()
+    }
 }
 
 impl Parse for Declaration {
