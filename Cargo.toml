@@ -3,12 +3,8 @@ name = "micro-tower"
 version = "0.1.0"
 edition = "2021"
 
-[features]
-default = ["r2d2"]
-
 [workspace]
 members = [
-	"codegen-macros",
 	"codegen",
 ]
 
@@ -19,17 +15,9 @@ serde_json = "~1.0.85"
 thiserror = "~1.0.34"
 tracing = "~0.1.36"
 
-[dependencies.r2d2]
-version = "~0.8.10"
-optional = true
-
 [dependencies.serde]
 version = "~1.0.144"
 features = ["derive"]
-
-[dependencies.tracing-subscriber]
-version = "~0.3.15"
-features = ["std", "fmt"]
 
 [dependencies.tokio]
 version = "~1.21.0"
