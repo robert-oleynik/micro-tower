@@ -3,6 +3,7 @@ use syn::{parse::Parse, spanned::Spanned};
 use crate::util::diagnostic;
 
 pub struct Declaration {
+    pub_token: Option<syn::token::Pub>,
     signature: syn::Signature,
     block: Box<syn::Block>,
 }
@@ -40,11 +41,17 @@ impl Declaration {
     pub fn name(&self) -> &syn::Ident {
         &self.signature.ident
     }
+
+    /// Return `pub` token if service should be public and `None` if not.
+    pub fn pub_token(&self) -> Option<&syn::token::Pub> {
+        self.pub_token.as_ref()
+    }
 }
 
 impl Parse for Declaration {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         Ok(Self {
+            pub_token: input.parse()?,
             signature: input.parse()?,
             block: input.parse()?,
         })
