@@ -7,6 +7,7 @@ use syn::{parse_macro_input, AttributeArgs};
 mod service;
 mod util;
 
+/// TODO
 #[proc_macro_attribute]
 pub fn service(args: TokenStream, items: TokenStream) -> TokenStream {
     let args = parse_macro_input!(args as AttributeArgs);

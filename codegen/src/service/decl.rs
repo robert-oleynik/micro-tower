@@ -35,6 +35,11 @@ impl Declaration {
             );
         }
     }
+
+    /// Returns the service name as identifier.
+    pub fn name(&self) -> &syn::Ident {
+        &self.signature.ident
+    }
 }
 
 impl Parse for Declaration {

@@ -1,4 +1,5 @@
 use darling::FromMeta;
+use quote::__private::Span;
 
 use crate::util::diagnostic;
 
@@ -6,6 +7,7 @@ use crate::util::diagnostic;
 pub struct Args {
     #[darling(rename = "crate")]
     crate_path: Option<syn::LitStr>,
+    name: Option<String>,
 }
 
 impl Args {
@@ -21,5 +23,14 @@ impl Args {
                 }
             })
             .unwrap_or_else(|| syn::parse_str("::micro_tower").unwrap())
+    }
+
+    /// Will return the service name as string literal. If option `name` is set will return this
+    /// instead.
+    pub fn name_str(&self, name: &syn::Ident) -> syn::LitStr {
+        self.name
+            .as_ref()
+            .map(|name| syn::LitStr::new(&name, Span::call_site()))
+            .unwrap_or_else(|| syn::LitStr::new(&name.to_string(), Span::call_site()))
     }
 }
