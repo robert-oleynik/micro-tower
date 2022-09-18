@@ -1,3 +1,6 @@
+use std::ops::Deref;
+
+use quote::__private::Span;
 use syn::{parse::Parse, spanned::Spanned};
 
 use crate::util::diagnostic;
@@ -45,6 +48,32 @@ impl Declaration {
     /// Return `pub` token if service should be public and `None` if not.
     pub fn pub_token(&self) -> Option<&syn::token::Pub> {
         self.pub_token.as_ref()
+    }
+
+    /// Returns reference to service's request argument used by the service implementation.
+    pub fn request_arg(&self) -> syn::FnArg {
+        self.signature
+            .inputs
+            .first()
+            .map(syn::FnArg::clone)
+            .unwrap_or_else(|| {
+                diagnostic::emit_error(Span::call_site(), "Missing request argument");
+                syn::parse_str("_: ()").unwrap()
+            })
+    }
+
+    /// Returns type of request argument.
+    pub fn request_type(&self) -> syn::Type {
+        match self.request_arg() {
+            syn::FnArg::Receiver(tk) => {
+                diagnostic::emit_error(
+                    tk.self_token.span(),
+                    "`self` is not allowed as service argument",
+                );
+                syn::parse_str("()").unwrap()
+            }
+            syn::FnArg::Typed(typed) => typed.ty.deref().clone(),
+        }
     }
 }
 

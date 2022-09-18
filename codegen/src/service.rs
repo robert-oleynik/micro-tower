@@ -10,10 +10,13 @@ pub fn generate(args: args::Args, decl: decl::Declaration) -> TokenStream {
     let _name_str = args.name_str(name);
     let pub_token = decl.pub_token();
 
+    let request_arg = decl.request_arg();
+    let request_ty = decl.request_type();
+
     quote::quote!(
         #pub_token struct #name {}
 
-        impl #crate_path::Service< () > for #name {
+        impl #crate_path::Service<#request_ty> for #name {
             type Response = ();
             type Error = #crate_path::util::BoxError;
             type Future = #crate_path::util::BoxFuture<Result<Self::Response, Self::Error>>;
@@ -22,7 +25,7 @@ pub fn generate(args: args::Args, decl: decl::Declaration) -> TokenStream {
                 todo!()
             }
 
-            fn call(&mut self, _: ()) -> Self::Future {
+            fn call(&mut self, #request_arg) -> Self::Future {
                 todo!()
             }
         }
