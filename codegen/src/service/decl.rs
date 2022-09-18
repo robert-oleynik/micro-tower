@@ -1,7 +1,7 @@
 use std::ops::Deref;
 
 use quote::__private::Span;
-use syn::{parse::Parse, spanned::Spanned};
+use syn::{parse::Parse, spanned::Spanned, ReturnType};
 
 use crate::util::diagnostic;
 
@@ -73,6 +73,41 @@ impl Declaration {
                 syn::parse_str("()").unwrap()
             }
             syn::FnArg::Typed(typed) => typed.ty.deref().clone(),
+        }
+    }
+
+    /// Returns the type of the response. Will extract the inner type in case of an `Result`
+    pub fn response_type(&self) -> syn::Type {
+        match self.signature.output {
+            ReturnType::Default => syn::parse_str("()").unwrap(),
+            ReturnType::Type(_, ref ty) => match ty.deref() {
+                syn::Type::Path(p) => {
+                    if let Some(ty) = p
+                        .path
+                        .segments
+                        .last()
+                        .and_then(|seg| {
+                            if seg.ident == "Result" {
+                                return Some(seg);
+                            }
+                            None
+                        })
+                        .and_then(|seg| match &seg.arguments {
+                            syn::PathArguments::AngleBracketed(args) => args.args.first(),
+                            _ => None,
+                        })
+                        .and_then(|arg| match arg {
+                            syn::GenericArgument::Type(ty) => Some(ty.clone()),
+                            _ => None,
+                        })
+                    {
+                        ty.clone()
+                    } else {
+                        ty.deref().clone()
+                    }
+                }
+                _ => ty.deref().clone(),
+            },
         }
     }
 }

@@ -12,12 +12,13 @@ pub fn generate(args: args::Args, decl: decl::Declaration) -> TokenStream {
 
     let request_arg = decl.request_arg();
     let request_ty = decl.request_type();
+    let response_ty = decl.response_type();
 
     quote::quote!(
         #pub_token struct #name {}
 
         impl #crate_path::Service<#request_ty> for #name {
-            type Response = ();
+            type Response = #response_ty;
             type Error = #crate_path::util::BoxError;
             type Future = #crate_path::util::BoxFuture<Result<Self::Response, Self::Error>>;
 
