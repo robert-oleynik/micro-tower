@@ -1,7 +1,7 @@
 use std::ops::Deref;
 
 use quote::__private::Span;
-use syn::{parse::Parse, spanned::Spanned, ReturnType};
+use syn::{parse::Parse, spanned::Spanned, Pat, ReturnType};
 
 use crate::util::diagnostic;
 
@@ -109,6 +109,33 @@ impl Declaration {
                 _ => ty.deref().clone(),
             },
         }
+    }
+
+    fn service_args(&self) -> impl Iterator<Item = &syn::PatType> + '_ {
+        self.signature
+            .inputs
+            .iter()
+            .skip(1)
+            .filter_map(|arg| match arg {
+                syn::FnArg::Receiver(recv) => {
+                    diagnostic::emit_error(recv.span(), "`self` is not allowed in this context");
+                    None
+                }
+                syn::FnArg::Typed(ty) => Some(ty),
+            })
+    }
+
+    pub fn service_names(&self) -> impl Iterator<Item = syn::Ident> + '_ {
+        self.service_args()
+            .filter_map(|arg| match arg.pat.as_ref() {
+                syn::Pat::Ident(id) => Some(id.ident.clone()),
+                syn::Pat::Wild(_) => Some(syn::parse_str("_").unwrap()),
+                _ => None,
+            })
+    }
+
+    pub fn service_types(&self) -> impl Iterator<Item = &'_ syn::Type> {
+        self.service_args().map(|arg| arg.ty.as_ref())
     }
 
     pub fn block(&self) -> &syn::Block {

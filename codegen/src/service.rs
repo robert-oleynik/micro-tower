@@ -16,8 +16,13 @@ pub fn generate(args: args::Args, decl: decl::Declaration) -> TokenStream {
 
     let block = decl.block();
 
+    let service_names0 = decl.service_names();
+    let service_ty0 = decl.service_types();
+
     quote::quote!(
-        #pub_token struct #name {}
+        #pub_token struct #name {
+            #( #service_names0: #service_ty0 ),*
+        }
 
         impl #crate_path::Service<#request_ty> for #name {
             type Response = #response_ty;
