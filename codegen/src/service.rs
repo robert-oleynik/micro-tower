@@ -23,7 +23,7 @@ pub fn generate(args: args::Args, decl: decl::Declaration) -> TokenStream {
             type Future = #crate_path::util::BoxFuture<Result<Self::Response, Self::Error>>;
 
             fn poll_ready(&mut self, _: ::std::task::Context<'_>) -> ::std::task::Poll<Result<(), Self::Error>> {
-                todo!()
+                Poll::Ready(Ok(()))
             }
 
             fn call(&mut self, #request_arg) -> Self::Future {
