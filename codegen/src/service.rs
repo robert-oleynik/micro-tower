@@ -17,6 +17,7 @@ pub fn generate(args: args::Args, decl: decl::Declaration) -> TokenStream {
     let block = decl.block();
 
     let service_names0 = decl.service_names();
+    let service_names1 = decl.service_names();
     let service_ty0 = decl.service_types();
 
     quote::quote!(
@@ -35,6 +36,13 @@ pub fn generate(args: args::Args, decl: decl::Declaration) -> TokenStream {
 
             fn call(&mut self, #request_arg) -> Self::Future {
                 use #crate_path::prelude::Instrument;
+
+                #(
+                    let #service_names1 = match self.#service_names1.borrow() {
+                        Some(inner) => inner,
+                        None = return Box::pin(async move { Err(Box::new(#crate_path::service::NotReady).into()) })
+                    };
+                ),*
 
                 let fut = async move #block;
 
