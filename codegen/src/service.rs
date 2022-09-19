@@ -62,7 +62,7 @@ pub fn generate(args: args::Args, decl: decl::Declaration) -> TokenStream {
                         }
                     }
                 )*
-                Poll::Ready(Ok(()))
+                ::std::task::Poll::Ready(Ok(()))
             }
 
             fn call(&mut self, #request_arg) -> Self::Future {
@@ -71,7 +71,11 @@ pub fn generate(args: args::Args, decl: decl::Declaration) -> TokenStream {
                 #(
                     let #service_names1 = match self.#service_names1.borrow() {
                         Some(inner) => inner.
-                        None = return Box::pin(async move { Err(Box::new(#crate_path::service::NotReady).into()) })
+                        None => {
+                            return ::std::boxed::Box::pin(async move {
+                                Err(::std::boxed::Box::new(#crate_path::service::NotReady).into())
+                            })
+                        }
                     };
                 ),*
 
