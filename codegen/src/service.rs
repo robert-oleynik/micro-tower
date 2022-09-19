@@ -15,6 +15,8 @@ pub fn generate(args: args::Args, decl: decl::Declaration) -> TokenStream {
     let request_ty = decl.request_type();
     let (is_result, response_ty) = decl.response_type();
 
+    let output = decl.output();
+
     let block = decl.block();
 
     let service_names0 = decl.service_names();
@@ -25,7 +27,10 @@ pub fn generate(args: args::Args, decl: decl::Declaration) -> TokenStream {
     let service_names5 = decl.service_names();
     let service_names6 = decl.service_names();
     let service_ty0 = decl.service_types();
+    let service_ty1 = decl.service_types();
     let service_ty2 = decl.service_types();
+
+    let service_mut = decl.service_mut();
 
     let ret = if is_result {
         quote::quote!(Ok(result?))
@@ -36,17 +41,13 @@ pub fn generate(args: args::Args, decl: decl::Declaration) -> TokenStream {
     quote::quote!(
         #[allow(non_camel_case_types)]
         #pub_token struct #name {
-            #(
-                #service_names0: #crate_path::util::borrow::Cell<#service_ty0>
-            ),*
+            #( #service_names0: #crate_path::util::borrow::Cell<#service_ty0> ),*
         }
 
         #[derive(Default)]
         #[allow(non_camel_case_types)]
         #pub_token struct #name_builder {
-            #(
-                #service_names4: Option<#crate_path>
-            ),*
+            #( #service_names4: Option<#service_ty1> ),*
         }
 
         impl #name {
@@ -57,17 +58,19 @@ pub fn generate(args: args::Args, decl: decl::Declaration) -> TokenStream {
 
         impl #name_builder {
             #(
+                #[must_use]
                 pub fn #service_names2(mut self, inner: #service_ty2) -> Self {
                     self.#service_names2 = Some(inner);
                     self
                 }
             )*
 
-            pub fn build(self) -> #name {
+            #[must_use]
+            pub fn build(mut self) -> #name {
                 #(
-                    let #service_names5 = match self.#service_names5 {
+                    let #service_names5 = match self.#service_names5.take() {
                         Some(inner) => inner,
-                        None => panic!("service `{0}` is not set", ::std::stringify!( #service_names5))
+                        None => panic!("service `{0}` is not set", ::std::stringify!(#service_names5))
                     };
                 ),*
 
@@ -84,11 +87,11 @@ pub fn generate(args: args::Args, decl: decl::Declaration) -> TokenStream {
 
             fn poll_ready(&mut self, cx: &mut ::std::task::Context<'_>) -> ::std::task::Poll<Result<(), Self::Error>> {
                 #(
-                    if let Some(inner) = self.#service_names3.borrow() {
+                    if let Some(mut inner) = self.#service_names3.try_borrow() {
                         match inner.poll_ready(cx) {
                             ::std::task::Poll::Ready(Ok(_)) => {}
                             ::std::task::Poll::Ready(Err(err)) => {
-                                return ::std::task::Poll::Ready(::std::boxed::Box::new(err).into)
+                                return ::std::task::Poll::Ready(Err(err).into())
                             },
                             ::std::task::Poll::Pending => {
                                 return::std::task::Poll::Pending
@@ -103,17 +106,18 @@ pub fn generate(args: args::Args, decl: decl::Declaration) -> TokenStream {
                 use #crate_path::prelude::Instrument;
 
                 #(
-                    let #service_names1 = match self.#service_names1.borrow() {
-                        Some(inner) => inner.
+                    let #service_mut #service_names1 = match self.#service_names1.try_borrow() {
+                        Some(inner) => inner,
                         None => {
                             return ::std::boxed::Box::pin(async move {
-                                Err(::std::boxed::Box::new(#crate_path::service::NotReady).into())
+                                let err = #crate_path::service::NotReady(::std::stringify!(#service_names1));
+                                Err(::std::boxed::Box::new(err).into())
                             })
                         }
                     };
                 ),*
 
-                let fut = async move #block;
+                let fut: #crate_path::util::BoxFuture<#output> = Box::pin(async move #block);
                 let fut = async move {
                     let result = fut.await;
                     #ret

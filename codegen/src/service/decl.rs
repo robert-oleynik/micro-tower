@@ -134,12 +134,27 @@ impl Declaration {
             })
     }
 
+    pub fn service_mut(&self) -> impl Iterator<Item = Option<syn::token::Mut>> + '_ {
+        self.service_args()
+            .filter_map(|arg| match arg.pat.as_ref() {
+                syn::Pat::Ident(id) => Some(id.mutability),
+                _ => None,
+            })
+    }
+
     pub fn service_types(&self) -> impl Iterator<Item = &'_ syn::Type> {
         self.service_args().map(|arg| arg.ty.as_ref())
     }
 
     pub fn block(&self) -> &syn::Block {
         self.block.deref()
+    }
+
+    pub fn output(&self) -> syn::Type {
+        match &self.signature.output {
+            ReturnType::Default => syn::parse_str("()").unwrap(),
+            ReturnType::Type(_, ty) => ty.deref().clone(),
+        }
     }
 }
 
