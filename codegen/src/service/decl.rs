@@ -77,9 +77,9 @@ impl Declaration {
     }
 
     /// Returns the type of the response. Will extract the inner type in case of an `Result`
-    pub fn response_type(&self) -> syn::Type {
+    pub fn response_type(&self) -> (bool, syn::Type) {
         match self.signature.output {
-            ReturnType::Default => syn::parse_str("()").unwrap(),
+            ReturnType::Default => (false, syn::parse_str("()").unwrap()),
             ReturnType::Type(_, ref ty) => match ty.deref() {
                 syn::Type::Path(p) => {
                     if let Some(ty) = p
@@ -101,12 +101,12 @@ impl Declaration {
                             _ => None,
                         })
                     {
-                        ty.clone()
+                        (true, ty.clone())
                     } else {
-                        ty.deref().clone()
+                        (false, ty.deref().clone())
                     }
                 }
-                _ => ty.deref().clone(),
+                _ => (false, ty.deref().clone()),
             },
         }
     }

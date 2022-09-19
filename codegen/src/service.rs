@@ -7,13 +7,13 @@ pub fn generate(args: args::Args, decl: decl::Declaration) -> TokenStream {
     decl.emit_errors();
     let crate_path = args.crate_path();
     let name = decl.name();
-    let name_builder = syn::Ident::new(format!("{name}Builder").as_ref(), Span::call_site());
+    let name_builder = syn::Ident::new(format!("{name}_builder").as_ref(), Span::call_site());
     let name_str = args.name_str(name);
     let pub_token = decl.pub_token();
 
     let request_arg = decl.request_arg();
     let request_ty = decl.request_type();
-    let response_ty = decl.response_type();
+    let (is_result, response_ty) = decl.response_type();
 
     let block = decl.block();
 
@@ -21,26 +21,60 @@ pub fn generate(args: args::Args, decl: decl::Declaration) -> TokenStream {
     let service_names1 = decl.service_names();
     let service_names2 = decl.service_names();
     let service_names3 = decl.service_names();
+    let service_names4 = decl.service_names();
+    let service_names5 = decl.service_names();
+    let service_names6 = decl.service_names();
     let service_ty0 = decl.service_types();
     let service_ty2 = decl.service_types();
 
+    let ret = if is_result {
+        quote::quote!(Ok(result?))
+    } else {
+        quote::quote!(Ok(result))
+    };
+
     quote::quote!(
-        #[derive(#crate_path::export::derive_builder::Builder)]
-        #[builder(pattern = "owned")]
+        #[allow(non_camel_case_types)]
         #pub_token struct #name {
             #(
-                #[builder(setter(custom))]
                 #service_names0: #crate_path::util::borrow::Cell<#service_ty0>
             ),*
         }
 
+        #[derive(Default)]
+        #[allow(non_camel_case_types)]
+        #pub_token struct #name_builder {
+            #(
+                #service_names4: Option<#crate_path>
+            ),*
+        }
+
+        impl #name {
+            pub fn builder() -> #name_builder {
+                #name_builder::default()
+            }
+        }
+
         impl #name_builder {
             #(
-            pub fn #service_names2(mut self, inner: #service_ty2) -> Self {
-                self.#service_names2 = Some(#crate_path::util::borrow::Cell::new(inner));
-                self
-            }
+                pub fn #service_names2(mut self, inner: #service_ty2) -> Self {
+                    self.#service_names2 = Some(inner);
+                    self
+                }
             )*
+
+            pub fn build(self) -> #name {
+                #(
+                    let #service_names5 = match self.#service_names5 {
+                        Some(inner) => inner,
+                        None => panic!("service `{0}` is not set", ::std::stringify!( #service_names5))
+                    };
+                ),*
+
+                #name {
+                    #( #service_names6: #crate_path::util::borrow::Cell::new(#service_names6) ),*
+                }
+            }
         }
 
         impl #crate_path::Service<#request_ty> for #name {
@@ -48,7 +82,7 @@ pub fn generate(args: args::Args, decl: decl::Declaration) -> TokenStream {
             type Error = #crate_path::util::BoxError;
             type Future = #crate_path::util::BoxFuture<Result<Self::Response, Self::Error>>;
 
-            fn poll_ready(&mut self, cx: ::std::task::Context<'_>) -> ::std::task::Poll<Result<(), Self::Error>> {
+            fn poll_ready(&mut self, cx: &mut ::std::task::Context<'_>) -> ::std::task::Poll<Result<(), Self::Error>> {
                 #(
                     if let Some(inner) = self.#service_names3.borrow() {
                         match inner.poll_ready(cx) {
@@ -80,8 +114,12 @@ pub fn generate(args: args::Args, decl: decl::Declaration) -> TokenStream {
                 ),*
 
                 let fut = async move #block;
+                let fut = async move {
+                    let result = fut.await;
+                    #ret
+                };
 
-                let fut = fut.instrument(#crate_path::tracing::info_span!(#name_str));
+                let fut = fut.instrument(#crate_path::export::tracing::info_span!(#name_str));
 
                 Box::pin(fut)
             }
