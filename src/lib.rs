@@ -1,5 +1,4 @@
-pub use micro_tower_codegen as codegen;
-pub use tower::Service;
+pub mod util;
 
 pub mod prelude {
     pub use tower::ServiceExt;
@@ -8,6 +7,8 @@ pub mod prelude {
 
 pub mod export {
     pub use derive_builder;
+    pub use tracing;
 }
 
-pub use tracing;
+pub use micro_tower_codegen as codegen;
+pub use tower::Service;
