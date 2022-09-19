@@ -6,4 +6,8 @@ pub mod prelude {
     pub use tracing::Instrument;
 }
 
+pub mod export {
+    pub use derive_builder;
+}
+
 pub use tracing;
