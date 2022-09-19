@@ -20,6 +20,7 @@ pub fn generate(args: args::Args, decl: decl::Declaration) -> TokenStream {
     let service_names0 = decl.service_names();
     let service_names1 = decl.service_names();
     let service_names2 = decl.service_names();
+    let service_names3 = decl.service_names();
     let service_ty0 = decl.service_types();
     let service_ty2 = decl.service_types();
 
@@ -47,7 +48,20 @@ pub fn generate(args: args::Args, decl: decl::Declaration) -> TokenStream {
             type Error = #crate_path::util::BoxError;
             type Future = #crate_path::util::BoxFuture<Result<Self::Response, Self::Error>>;
 
-            fn poll_ready(&mut self, _: ::std::task::Context<'_>) -> ::std::task::Poll<Result<(), Self::Error>> {
+            fn poll_ready(&mut self, cx: ::std::task::Context<'_>) -> ::std::task::Poll<Result<(), Self::Error>> {
+                #(
+                    if let Some(inner) = self.#service_names3.borrow() {
+                        match inner.poll_ready(cx) {
+                            ::std::task::Poll::Ready(Ok(_)) => {}
+                            ::std::task::Poll::Ready(Err(err)) => {
+                                return ::std::task::Poll::Ready(::std::boxed::Box::new(err).into)
+                            },
+                            ::std::task::Poll::Pending => {
+                                return::std::task::Poll::Pending
+                            }
+                        }
+                    }
+                )*
                 Poll::Ready(Ok(()))
             }
 
@@ -56,7 +70,7 @@ pub fn generate(args: args::Args, decl: decl::Declaration) -> TokenStream {
 
                 #(
                     let #service_names1 = match self.#service_names1.borrow() {
-                        Some(inner) => inner,
+                        Some(inner) => inner.
                         None = return Box::pin(async move { Err(Box::new(#crate_path::service::NotReady).into()) })
                     };
                 ),*
