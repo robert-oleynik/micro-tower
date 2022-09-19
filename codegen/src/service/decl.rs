@@ -1,7 +1,7 @@
 use std::ops::Deref;
 
 use quote::__private::Span;
-use syn::{parse::Parse, spanned::Spanned, Pat, ReturnType};
+use syn::{parse::Parse, spanned::Spanned, ReturnType};
 
 use crate::util::diagnostic;
 

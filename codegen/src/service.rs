@@ -1,4 +1,4 @@
-use quote::__private::TokenStream;
+use quote::__private::{Span, TokenStream};
 
 pub mod args;
 pub mod decl;
@@ -7,6 +7,7 @@ pub fn generate(args: args::Args, decl: decl::Declaration) -> TokenStream {
     decl.emit_errors();
     let crate_path = args.crate_path();
     let name = decl.name();
+    let name_builder = syn::Ident::new(format!("{name}Builder").as_ref(), Span::call_site());
     let name_str = args.name_str(name);
     let pub_token = decl.pub_token();
 
@@ -18,11 +19,27 @@ pub fn generate(args: args::Args, decl: decl::Declaration) -> TokenStream {
 
     let service_names0 = decl.service_names();
     let service_names1 = decl.service_names();
+    let service_names2 = decl.service_names();
     let service_ty0 = decl.service_types();
+    let service_ty2 = decl.service_types();
 
     quote::quote!(
+        #[derive(#crate_path::export::derive_builder::Builder)]
+        #[builder(pattern = "owned")]
         #pub_token struct #name {
-            #( #service_names0: #service_ty0 ),*
+            #(
+                #[builder(setter(custom))]
+                #service_names0: #crate_path::util::borrow::Cell<#service_ty0>
+            ),*
+        }
+
+        impl #name_builder {
+            #(
+            pub fn #service_names2(mut self, inner: #service_ty2) -> Self {
+                self.#service_names2 = Some(#crate_path::util::borrow::Cell::new(inner));
+                self
+            }
+            )*
         }
 
         impl #crate_path::Service<#request_ty> for #name {
