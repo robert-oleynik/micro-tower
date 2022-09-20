@@ -1,92 +1,36 @@
-use micro_tower_codegen_macros::diagnostic;
+use darling::FromMeta;
+use quote::__private::Span;
 
-#[derive(darling::FromMeta)]
+use crate::util::diagnostic;
+
+#[derive(FromMeta)]
 pub struct Args {
     #[darling(rename = "crate")]
     crate_path: Option<syn::LitStr>,
-    buffer: Option<syn::LitInt>,
-    concurrency: Option<syn::LitInt>,
+    name: Option<String>,
 }
 
 impl Args {
-    fn default_crate_path() -> syn::Path {
-        syn::parse_str("::micro_tower").unwrap()
-    }
-
-    pub fn parse_crate_path(&self) -> syn::parse::Result<syn::Path> {
-        if let Some(crate_path) = &self.crate_path {
-            let parse: syn::Path = syn::parse_str(&crate_path.value())?;
-            Ok(parse)
-        } else {
-            Ok(Self::default_crate_path())
-        }
-    }
-
-    /// Verify inputs and send errors/warnings.
-    pub fn verify(&self) -> syn::parse::Result<bool> {
-        if let Some(buffer) = &self.buffer {
-            let buf_size: usize = buffer.base10_parse()?;
-            if buf_size == 0 {
-                diagnostic!(error at [buffer.span().unwrap()], "expected buffer len unequals `0`");
-            }
-        }
-
-        if let Some(crate_path) = &self.crate_path {
-            if let Err(err) = self.parse_crate_path() {
-                diagnostic!(error at [crate_path.span().unwrap()], "invalid module path");
-                return Err(err);
-            }
-        }
-
-        Ok(true)
-    }
-
+    // Returns the module's base path. If option is not set will return the path `::micro_tower`.
     pub fn crate_path(&self) -> syn::Path {
-        self.parse_crate_path()
-            .unwrap_or(Self::default_crate_path())
+        self.crate_path
+            .as_ref()
+            .and_then(|p| match syn::parse_str::<syn::Path>(&p.value()) {
+                Ok(path) => Some(path),
+                Err(err) => {
+                    diagnostic::emit_error(p.span(), format!("{err}"));
+                    None
+                }
+            })
+            .unwrap_or_else(|| syn::parse_str("::micro_tower").unwrap())
     }
 
-    pub fn derive_builder_path(&self) -> syn::Path {
-        let path = self.crate_path();
-        syn::parse2(quote::quote!( #path :: export :: derive_builder )).unwrap()
-    }
-
-    pub fn tower_path(&self) -> syn::Path {
-        let path = self.crate_path();
-        syn::parse2(quote::quote!( #path :: export :: tower )).unwrap()
-    }
-
-    pub fn tracing_path(&self) -> syn::Path {
-        let path = self.crate_path();
-        syn::parse2(quote::quote!( #path :: export :: tracing )).unwrap()
-    }
-
-    pub fn buffer_len(&self) -> Option<&syn::LitInt> {
-        self.buffer.as_ref()
-    }
-
-    /// Returns the concurrency limit (if specified). Will return `None` if `buffer` option is set
-    /// although `concurrency` option is set.
-    ///
-    /// # Compiler Warning
-    ///
-    /// Will emit an compiler warning if `buffer` and `concurrency` option are set together.
-    pub fn concurrency_limit(&self) -> Option<&syn::LitInt> {
-        self.concurrency.as_ref().and_then(|opt| {
-            if self.buffer.is_some() {
-                diagnostic!(
-                    warn at [opt.span().unwrap()],
-                    "Cannot set `concurrency` option if `buffer` option is set"
-                );
-                None
-            } else {
-                Some(opt)
-            }
-        })
-    }
-
-    /// Returns true if any option is enabled which modifies the error type.
-    pub fn require_map_error(&self) -> bool {
-        self.buffer.is_some()
+    /// Will return the service name as string literal. If option `name` is set will return this
+    /// instead.
+    pub fn name_str(&self, name: &syn::Ident) -> syn::LitStr {
+        self.name
+            .as_ref()
+            .map(|name| syn::LitStr::new(&name, Span::call_site()))
+            .unwrap_or_else(|| syn::LitStr::new(&name.to_string(), Span::call_site()))
     }
 }

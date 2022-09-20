@@ -1,190 +1,132 @@
-use micro_tower_codegen_macros::diagnostic;
 use quote::__private::{Span, TokenStream};
-use syn::{spanned::Spanned, LitStr};
 
-mod args;
-mod items;
-mod signature;
+pub mod args;
+pub mod decl;
 
-pub use args::Args;
-pub use items::Items;
-
-/// Generate service implementation where `args` specify the service attributes and `items` the
-/// service functionality.
-///
-/// Will generate:
-///
-/// - a struct with name of service signature
-/// - a builder to build this struct. The builder will create a setter for each service and
-///   connection specified.
-/// - an implementation of [`micro_tower::util::Buildable`]
-/// - an implementation of [`micro_tower::tower::Service`]
-pub fn generate(args: Args, items: Items) -> TokenStream {
+pub fn generate(args: args::Args, decl: decl::Declaration) -> TokenStream {
+    decl.emit_errors();
     let crate_path = args.crate_path();
-    let derive_builder_path = args.derive_builder_path();
-    let tower_path = args.tower_path();
-    let tracing_path = args.tracing_path();
+    let name = decl.name();
+    let name_builder = syn::Ident::new(format!("{name}_builder").as_ref(), Span::call_site());
+    let name_str = args.name_str(name);
+    let pub_token = decl.pub_token();
 
-    let name = items.name();
-    let name_builder = syn::Ident::new(&format!("{name}Builder"), Span::call_site());
-    let pub_token = items.pub_token();
+    let request_arg = decl.request_arg();
+    let request_ty = decl.request_type();
+    let (is_result, response_ty) = decl.response_type();
 
-    let mut error_path: String = derive_builder_path
-        .segments
-        .iter()
-        .map(|seg| seg.ident.to_string() + "::")
-        .collect();
+    let output = decl.output();
 
-    if derive_builder_path.leading_colon.is_some() {
-        error_path = String::from("::") + &error_path;
-    }
-    let error_ty_lit: syn::LitStr =
-        syn::parse_str(&format!("\"{error_path}UninitializedFieldError\"")).unwrap();
+    let block = decl.block();
 
-    let fields0 = items.services().map(pat_type_to_field);
-    let fields1 = items.services().map(pat_type_to_field);
-    let field_names = items.services().map(|arg| pat_ident(&arg.pat));
-    let field_names_lit = items
-        .services()
-        .map(|arg| pat_ident(&arg.pat))
-        .flatten()
-        .map(|field| field.to_string())
-        .map(|field| syn::LitStr::new(&field, Span::call_site()));
+    let service_names0 = decl.service_names();
+    let service_names1 = decl.service_names();
+    let service_names2 = decl.service_names();
+    let service_names3 = decl.service_names();
+    let service_names4 = decl.service_names();
+    let service_names5 = decl.service_names();
+    let service_names6 = decl.service_names();
+    let service_ty0 = decl.service_types();
+    let service_ty1 = decl.service_types();
+    let service_ty2 = decl.service_types();
 
-    let buffer = if let Some(buffer) = args.buffer_len() {
-        quote::quote!( .buffer(#buffer) )
-    } else {
-        quote::quote!()
-    };
+    let service_mut = decl.service_mut();
 
-    let concurrency = if let Some(concurrency) = args.concurrency_limit() {
-        quote::quote!( .concurrency_limit(#concurrency) )
-    } else {
-        quote::quote!()
-    };
-
-    let map_err = if args.require_map_error() {
-        quote::quote!( .layer(#crate_path::service::map_error::Layer::default()) )
-    } else {
-        quote::quote!()
-    };
-
-    let inputs = items.inputs();
-    let output = items.output();
-    let block = items.block();
-
-    let request = items.request_type();
-    let (response, extr_err) = items.response_type();
-    let error = items.error_type();
-
-    let mut service_type = quote::quote!( #name );
-    if args.concurrency_limit().is_some() {
-        service_type =
-            quote::quote!( #tower_path::limit::concurrency::ConcurrencyLimit<#service_type> );
-    }
-    if args.buffer_len().is_some() {
-        service_type = quote::quote!( #tower_path::buffer::Buffer<#service_type, #request> );
-    }
-    if args.require_map_error() {
-        service_type =
-            quote::quote!( #crate_path::service::map_error::Service<#request, #service_type> );
-    }
-
-    let ret = if extr_err {
-        quote::quote!(result)
+    let ret = if is_result {
+        quote::quote!(Ok(result?))
     } else {
         quote::quote!(Ok(result))
     };
-    let name_lit = LitStr::new(&name.to_string(), Span::call_site());
 
     quote::quote!(
         #[allow(non_camel_case_types)]
-        #[derive(::std::clone::Clone, #derive_builder_path::Builder)]
-        #[builder(build_fn(skip, error = #error_ty_lit))]
         #pub_token struct #name {
-            #( #fields0 ),*
+            #( #service_names0: #crate_path::util::borrow::Cell<#service_ty0> ),*
         }
 
-        impl #name_builder {
-            pub fn build(&mut self) -> Result<#crate_path::service::Service<#name>, #derive_builder_path::UninitializedFieldError> {
-                let service = #name {
-                    #( #field_names: self.#field_names.clone()
-                        .ok_or(#derive_builder_path::UninitializedFieldError::new(#field_names_lit))? ),*
-                };
-
-                let service = #tower_path::ServiceBuilder::new()
-                    #map_err
-                    #buffer
-                    #concurrency
-                    .service(service);
-                Ok(#crate_path::service::Service::from_service(service))
-            }
+        #[derive(Default)]
+        #[allow(non_camel_case_types)]
+        #pub_token struct #name_builder {
+            #( #service_names4: Option<#service_ty1> ),*
         }
 
         impl #name {
-            async fn handle(#(#inputs),*) #output #block
-        }
-
-        impl #crate_path::util::Buildable for #name {
-            type Target = #service_type;
-            type Builder = #name_builder;
-
-            fn builder() -> Self::Builder {
+            pub fn builder() -> #name_builder {
                 #name_builder::default()
             }
         }
 
-        impl #tower_path::Service<#request> for #name {
-            type Response = #response;
-            type Error = #error;
-            type Future = ::std::pin::Pin<::std::boxed::Box<dyn  ::std::future::Future<Output = Result<Self::Response, Self::Error>> + Send>>;
+        impl #name_builder {
+            #(
+                #[must_use]
+                pub fn #service_names2(mut self, inner: #service_ty2) -> Self {
+                    self.#service_names2 = Some(inner);
+                    self
+                }
+            )*
 
-            fn poll_ready(&mut self, _: &mut ::std::task::Context<'_>) -> ::std::task::Poll<Result<(), Self::Error>> {
+            #[must_use]
+            pub fn build(mut self) -> #name {
+                #(
+                    let #service_names5 = match self.#service_names5.take() {
+                        Some(inner) => inner,
+                        None => panic!("service `{0}` is not set", ::std::stringify!(#service_names5))
+                    };
+                ),*
+
+                #name {
+                    #( #service_names6: #crate_path::util::borrow::Cell::new(#service_names6) ),*
+                }
+            }
+        }
+
+        impl #crate_path::Service<#request_ty> for #name {
+            type Response = #response_ty;
+            type Error = #crate_path::util::BoxError;
+            type Future = #crate_path::util::BoxFuture<Result<Self::Response, Self::Error>>;
+
+            fn poll_ready(&mut self, cx: &mut ::std::task::Context<'_>) -> ::std::task::Poll<Result<(), Self::Error>> {
+                #(
+                    if let Some(mut inner) = self.#service_names3.try_borrow() {
+                        match inner.poll_ready(cx) {
+                            ::std::task::Poll::Ready(Ok(_)) => {}
+                            ::std::task::Poll::Ready(Err(err)) => {
+                                return ::std::task::Poll::Ready(Err(err).into())
+                            },
+                            ::std::task::Poll::Pending => {
+                                return::std::task::Poll::Pending
+                            }
+                        }
+                    }
+                )*
                 ::std::task::Poll::Ready(Ok(()))
             }
 
-            fn call(&mut self, request: #request) -> Self::Future {
-                use #tracing_path::Instrument;
+            fn call(&mut self, #request_arg) -> Self::Future {
+                use #crate_path::prelude::Instrument;
 
-                let this = self.clone();
+                #(
+                    let #service_mut #service_names1 = match self.#service_names1.try_borrow() {
+                        Some(inner) => inner,
+                        None => {
+                            return ::std::boxed::Box::pin(async move {
+                                let err = #crate_path::service::NotReady(::std::stringify!(#service_names1));
+                                Err(::std::boxed::Box::new(err).into())
+                            })
+                        }
+                    };
+                ),*
+
+                let fut: #crate_path::util::BoxFuture<#output> = Box::pin(async move #block);
                 let fut = async move {
-                    #tracing_path::trace!("called");
-                    let result = Self::handle(request, #( this.#fields1 ),*).await;
+                    let result = fut.await;
                     #ret
                 };
-                let fut = fut.instrument(#tracing_path::info_span!(#name_lit));
-                ::std::boxed::Box::pin(fut)
+
+                let fut = fut.instrument(#crate_path::export::tracing::info_span!(#name_str));
+
+                Box::pin(fut)
             }
         }
     )
-}
-
-pub fn pat_ident(pat: &syn::Pat) -> Option<&syn::Ident> {
-    match pat {
-        syn::Pat::Box(b) => pat_ident(&b.pat),
-        syn::Pat::Ident(ident) => Some(&ident.ident),
-        syn::Pat::Reference(r) => pat_ident(&r.pat),
-        syn::Pat::Wild(_) => None,
-        _ => {
-            diagnostic!(error at [pat.span().unwrap()], "Pattern is not allowed in this context.");
-            None
-        }
-    }
-}
-
-pub fn pat_type_to_field(arg: &syn::PatType) -> Option<syn::Field> {
-    match &*arg.pat {
-        syn::Pat::Ident(id) => Some(syn::Field {
-            attrs: Vec::new(),
-            vis: syn::Visibility::Inherited,
-            ident: Some(id.ident.clone()),
-            colon_token: syn::parse2(quote::quote!(:)).unwrap(),
-            ty: (*arg.ty).clone(),
-        }),
-        syn::Pat::Wild(_) => None,
-        _ => {
-            diagnostic!(error at [arg.span().unwrap()], "Pattern is not allowed in this context.");
-            None
-        }
-    }
 }
