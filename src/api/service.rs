@@ -6,6 +6,8 @@ use bytes::{Buf, BufMut, BytesMut};
 use futures::FutureExt;
 
 use super::codec::{Decode, Encode};
+use super::{Error, Message};
+use crate::util::BoxError;
 
 /// API service which translates bytes to requests of type `T` and response to bytes.
 pub struct Service<R, C, S> {
@@ -45,13 +47,14 @@ impl<R, C, S> Service<R, C, S> {
 
 impl<R, C, S> tower::Service<BytesMut> for Service<R, C, S>
 where
-    S: tower::Service<R>,
+    S: tower::Service<R, Error = BoxError>,
     S::Future: Unpin,
-    C: Decode<R> + Encode<S::Response>,
+    C: Decode<R> + Encode<Message<S::Response>>,
+    <C as Encode<Message<S::Response>>>::Error: std::error::Error + Send + Sync + 'static,
     <C as Decode<R>>::Error: Unpin,
 {
     type Response = bytes::BytesMut;
-    type Error = bytes::BytesMut;
+    type Error = Error;
     type Future = Future<R, C, S>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
@@ -90,28 +93,46 @@ impl<R, C, S: Clone> Clone for Service<R, C, S> {
 
 impl<R, C, S> std::future::Future for Future<R, C, S>
 where
-    S: tower::Service<R>,
+    S: tower::Service<R, Error = BoxError>,
     S::Future: Unpin,
-    C: Decode<R> + Encode<S::Response>,
+    C: Decode<R> + Encode<Message<S::Response>>,
+    <C as Encode<Message<S::Response>>>::Error: std::error::Error + Send + Sync + 'static,
     <C as Decode<R>>::Error: Unpin,
 {
-    type Output = Result<bytes::BytesMut, bytes::BytesMut>;
+    type Output = Result<bytes::BytesMut, Error>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let buf = match self.buf.take() {
+            Some(buf) => buf,
+            None => return Poll::Pending,
+        };
         match self.inner {
             FutureState::Future(ref mut fut) => match fut.poll_unpin(cx) {
                 Poll::Ready(Ok(response)) => {
-                    if let Some(buf) = self.buf.take() {
-                        let mut writer = buf.writer();
-                        if let Err(_) = C::encode(&mut writer, response) {
-                            todo!()
-                        }
-                        return Poll::Ready(Ok(writer.into_inner()));
+                    let message = Message::Ok { data: response };
+                    let mut writer = buf.writer();
+                    if let Err(err) = C::encode(&mut writer, message) {
+                        let err = Error {
+                            buf: Some(writer.into_inner()),
+                            err: Box::new(err),
+                        };
+                        return Poll::Ready(Err(err));
                     }
+                    Poll::Ready(Ok(writer.into_inner()))
+                }
+                Poll::Ready(Err(err)) => {
+                    let message = Message::<S::Response>::InternalServerError;
+                    let mut writer = buf.writer();
+                    if let Err(err) = C::encode(&mut writer, message) {
+                        panic!("{err}");
+                    }
+                    let err = Error { buf: None, err };
+                    return Poll::Ready(Err(err));
+                }
+                Poll::Pending => {
+                    self.buf.replace(buf);
                     Poll::Pending
                 }
-                Poll::Ready(Err(_)) => todo!(),
-                Poll::Pending => Poll::Pending,
             },
             FutureState::BadRequest(_) => todo!(),
         }
