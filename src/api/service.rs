@@ -2,10 +2,10 @@ use std::marker::PhantomData;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-use bytes::{Buf, BytesMut};
+use bytes::{Buf, BufMut, BytesMut};
 use futures::FutureExt;
 
-use super::codec::Decode;
+use super::codec::{Decode, Encode};
 
 /// API service which translates bytes to requests of type `T` and response to bytes.
 pub struct Service<R, C, S> {
@@ -21,7 +21,7 @@ where
     C::Error: Unpin,
 {
     inner: FutureState<<C as Decode<R>>::Error, S::Future>,
-    buf: BytesMut,
+    buf: Option<BytesMut>,
     _p: PhantomData<Pin<Box<(R, C, S)>>>,
 }
 
@@ -47,8 +47,8 @@ impl<R, C, S> tower::Service<BytesMut> for Service<R, C, S>
 where
     S: tower::Service<R>,
     S::Future: Unpin,
-    C: Decode<R>,
-    C::Error: Unpin,
+    C: Decode<R> + Encode<S::Response>,
+    <C as Decode<R>>::Error: Unpin,
 {
     type Response = bytes::BytesMut;
     type Error = bytes::BytesMut;
@@ -67,12 +67,12 @@ where
         match C::decode(&mut reader) {
             Ok(request) => Future {
                 inner: FutureState::Future(self.inner.call(request)),
-                buf: reader.into_inner(),
+                buf: Some(reader.into_inner()),
                 _p: PhantomData,
             },
             Err(err) => Future {
                 inner: FutureState::BadRequest(err),
-                buf: reader.into_inner(),
+                buf: Some(reader.into_inner()),
                 _p: PhantomData,
             },
         }
@@ -92,15 +92,24 @@ impl<R, C, S> std::future::Future for Future<R, C, S>
 where
     S: tower::Service<R>,
     S::Future: Unpin,
-    C: Decode<R>,
-    C::Error: Unpin,
+    C: Decode<R> + Encode<S::Response>,
+    <C as Decode<R>>::Error: Unpin,
 {
     type Output = Result<bytes::BytesMut, bytes::BytesMut>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         match self.inner {
             FutureState::Future(ref mut fut) => match fut.poll_unpin(cx) {
-                Poll::Ready(Ok(_)) => todo!(),
+                Poll::Ready(Ok(response)) => {
+                    if let Some(buf) = self.buf.take() {
+                        let mut writer = buf.writer();
+                        if let Err(_) = C::encode(&mut writer, response) {
+                            todo!()
+                        }
+                        return Poll::Ready(Ok(writer.into_inner()));
+                    }
+                    Poll::Pending
+                }
                 Poll::Ready(Err(_)) => todo!(),
                 Poll::Pending => Poll::Pending,
             },
