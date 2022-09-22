@@ -8,6 +8,12 @@ pub struct Layer<R, C> {
     _p: PhantomData<(R, C)>,
 }
 
+impl<R, C> Default for Layer<R, C> {
+    fn default() -> Self {
+        Self { _p: PhantomData }
+    }
+}
+
 impl<R, C, S> tower::Layer<S> for Layer<R, C> {
     type Service = Service<R, C, S>;
 

@@ -2,7 +2,7 @@ pub mod api;
 pub mod util;
 
 pub mod prelude {
-    pub use tower::{Service, ServiceExt};
+    pub use tower::{Layer, Service, ServiceExt};
     pub use tracing::Instrument;
 }
 
