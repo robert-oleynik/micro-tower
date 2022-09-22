@@ -31,6 +31,7 @@ where
                     break;
                 }
             }
+            tracing::trace!(message = "buffer read", size = buf.len());
             let ready = match service.ready().await {
                 Ok(service) => service,
                 Err(err) => {
@@ -45,6 +46,7 @@ where
                     err.buf
                 }
             };
+            tracing::trace!(message = "writer buffer", size = buf.len());
             stream.write_buf(&mut buf).await.map_err(Box::new)?;
         }
     }

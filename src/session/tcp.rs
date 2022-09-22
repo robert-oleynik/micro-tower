@@ -16,8 +16,10 @@ where
 {
     tokio::spawn(async move {
         let listener = TcpListener::bind(addr).await?;
+        tracing::info!(message = "listening on", port = addr.port());
 
         loop {
+            tracing::trace!(message = "wait for new connections", port = addr.port());
             let (stream, addr) = listener.accept().await?;
 
             let service = match builder.ready().await {
