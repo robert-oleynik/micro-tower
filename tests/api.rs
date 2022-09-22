@@ -48,7 +48,7 @@ fn setup_api_layer() {
 }
 
 #[test]
-fn codec_encode() {
+fn json_codec_encode() {
     let buf = BytesMut::new();
     let mut writer = buf.writer();
     let request = Request {
@@ -67,11 +67,11 @@ fn codec_encode() {
 }
 
 #[test]
-fn codec_decode() {
+fn json_codec_decode() {
     let mut buf = BytesMut::new();
     buf.put(&b"{\"input\":\"\"}"[..]);
     let mut reader = buf.reader();
-    let _: Request = api::codec::Json::decode(&mut reader).unwrap();
+    let _request: Request = api::codec::Json::decode(&mut reader).unwrap();
 
     let mut buf = BytesMut::new();
     buf.put(&b"{\"m\":42}"[..]);
