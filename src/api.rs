@@ -22,6 +22,6 @@ pub enum Message<T> {
 
 /// TODO
 pub struct Error {
-    buf: Option<bytes::BytesMut>,
+    buf: bytes::BytesMut,
     err: BoxError,
 }
