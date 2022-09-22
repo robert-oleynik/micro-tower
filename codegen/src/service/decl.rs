@@ -52,14 +52,13 @@ impl Declaration {
 
     /// Returns reference to service's request argument used by the service implementation.
     pub fn request_arg(&self) -> syn::FnArg {
-        self.signature
-            .inputs
-            .first()
-            .map(syn::FnArg::clone)
-            .unwrap_or_else(|| {
+        self.signature.inputs.first().map_or_else(
+            || {
                 diagnostic::emit_error(Span::call_site(), "Missing request argument");
                 syn::parse_str("_: ()").unwrap()
-            })
+            },
+            syn::FnArg::clone,
+        )
     }
 
     /// Returns type of request argument.
@@ -80,8 +79,8 @@ impl Declaration {
     pub fn response_type(&self) -> (bool, syn::Type) {
         match self.signature.output {
             ReturnType::Default => (false, syn::parse_str("()").unwrap()),
-            ReturnType::Type(_, ref ty) => match ty.deref() {
-                syn::Type::Path(p) => {
+            ReturnType::Type(_, ref ty) => match **ty {
+                syn::Type::Path(ref p) => {
                     if let Some(ty) = p
                         .path
                         .segments
@@ -101,12 +100,12 @@ impl Declaration {
                             _ => None,
                         })
                     {
-                        (true, ty.clone())
+                        (true, ty)
                     } else {
-                        (false, ty.deref().clone())
+                        (false, *ty.clone())
                     }
                 }
-                _ => (false, ty.deref().clone()),
+                _ => (false, *ty.clone()),
             },
         }
     }
@@ -147,7 +146,7 @@ impl Declaration {
     }
 
     pub fn block(&self) -> &syn::Block {
-        self.block.deref()
+        &self.block
     }
 
     pub fn output(&self) -> syn::Type {

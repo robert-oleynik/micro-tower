@@ -3,7 +3,7 @@ use quote::__private::{Span, TokenStream};
 pub mod args;
 pub mod decl;
 
-pub fn generate(args: args::Args, decl: decl::Declaration) -> TokenStream {
+pub fn generate(args: &args::Args, decl: &decl::Declaration) -> TokenStream {
     decl.emit_errors();
     let crate_path = args.crate_path();
     let name = decl.name();

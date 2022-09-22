@@ -48,5 +48,5 @@ async fn call_inner_service() {
     let mut inner_service = inner_service::builder().inner(hw_service).build();
 
     let response = inner_service.ready().await.unwrap().call(()).await.unwrap();
-    assert_eq!(response, "Hello World")
+    assert_eq!(response, "Hello World");
 }

@@ -21,25 +21,32 @@ impl<T> Cell<T> {
 
     /// Returns `true` if the inner value is available to borrow. Returns `false` if value already
     /// borrowed.
+    ///
+    /// # Panics
+    ///
+    /// Will panic if failed to lock the inner variable.
+    #[must_use]
     pub fn is_available(&self) -> bool {
         self.inner.lock().unwrap().is_some()
     }
 
     /// Tries to borrow the inner value. Will return `None` if inner value couldn't be borrowed.
+    ///
+    /// # Panics
+    ///
+    /// Will panic if failed to lock the inner variable.
+    #[must_use]
     pub fn try_borrow(&self) -> Option<Borrowed<T>> {
-        if let Some(value) = self.inner.lock().unwrap().take() {
-            Some(Borrowed {
-                ret: self.inner.clone(),
-                value: Some(value),
-            })
-        } else {
-            None
-        }
+        self.inner.lock().unwrap().take().map(|value| Borrowed {
+            ret: self.inner.clone(),
+            value: Some(value),
+        })
     }
 }
 
 impl<T: Clone> Cell<T> {
     /// Tries to clone inner cell. Will return `None` if inner value is borrowed.
+    #[must_use]
     pub fn fork(&self) -> Option<Cell<T>> {
         if let Some(inner) = self.try_borrow() {
             return Some(Cell::new(inner.clone()));
