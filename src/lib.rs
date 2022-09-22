@@ -24,3 +24,4 @@ pub mod service {
 
 pub use micro_tower_codegen as codegen;
 pub use tower::Service;
+pub use tower::ServiceBuilder;

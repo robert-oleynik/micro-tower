@@ -30,3 +30,6 @@ features = ["full"]
 
 [dependencies.micro-tower-codegen]
 path = "codegen/"
+
+[dev-dependencies]
+tracing-subscriber = "~0.3.15"
