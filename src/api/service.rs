@@ -81,7 +81,9 @@ where
             }
             Err(err) => {
                 let message = Message::BadRequest;
-                let mut writer = reader.into_inner().writer();
+                let mut buf = reader.into_inner();
+                buf.clear();
+                let mut writer = buf.writer();
                 C::encode(&mut writer, message).unwrap();
                 let buf = writer.into_inner();
                 let err = Error {
