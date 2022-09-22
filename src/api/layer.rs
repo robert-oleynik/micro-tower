@@ -4,7 +4,7 @@ use super::Service;
 
 /// Creates a layer which wraps a given service inside an api translation layer (see [`Service`]).
 /// The api layer will translate requests of type `R` with codec `C`.
-pub struct Layer<R, C> {
+pub struct Layer<R, C = super::codec::Json> {
     _p: PhantomData<(R, C)>,
 }
 
