@@ -1,4 +1,7 @@
+#![feature(error_reporter)]
+
 pub mod api;
+pub mod session;
 pub mod util;
 
 pub mod prelude {
