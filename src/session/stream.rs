@@ -25,7 +25,7 @@ where
         loop {
             buf.clear();
             loop {
-                let num = stream.read(&mut lbuf).await.map_err(Box::new)?;
+                let num = stream.read(&mut lbuf).await?;
                 buf.extend_from_slice(&lbuf[..num]);
                 if num < BUF_SIZE {
                     break;
@@ -47,7 +47,7 @@ where
                 }
             };
             tracing::trace!(message = "writer buffer", size = buf.len());
-            stream.write_buf(&mut buf).await.map_err(Box::new)?;
+            stream.write_buf(&mut buf).await?;
         }
     }
 }
