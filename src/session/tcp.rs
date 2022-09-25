@@ -10,7 +10,7 @@ use crate::{api, shutdown::Controller};
 pub fn spawn<SB>(
     addr: SocketAddr,
     mut builder: SB,
-    mut controller: &Controller,
+    controller: &Controller,
 ) -> JoinHandle<Result<(), BoxError>>
 where
     SB: Service<SocketAddr, Error = BoxError> + Send + 'static,
@@ -25,7 +25,11 @@ where
 
         loop {
             tracing::trace!(message = "wait for new connections", port = addr.port());
-            let (stream, addr) = listener.accept().await?;
+
+            let (stream, addr) = tokio::select! {
+                result = listener.accept() => result?,
+                _ = controller.wait_for_shutdown() => return Ok(())
+            };
 
             let service = match builder.ready().await {
                 Ok(service) => service,

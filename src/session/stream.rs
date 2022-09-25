@@ -21,13 +21,17 @@ where
     Sv: tower::Service<BytesMut, Response = BytesMut, Error = api::Error> + Send + 'static,
     Sv::Future: Send,
 {
-    let fut = async move {
+    async move {
         let mut buf = BytesMut::new();
         let mut lbuf = [0_u8; BUF_SIZE];
         loop {
             buf.clear();
             loop {
-                let num = stream.read(&mut lbuf).await?;
+                let num = tokio::select! {
+                    res = stream.read(&mut lbuf) => res,
+                    _ = controller.wait_for_shutdown() => return Ok(())
+                };
+                let num = num?;
                 buf.extend_from_slice(&lbuf[..num]);
                 if num < BUF_SIZE {
                     break;
@@ -50,12 +54,6 @@ where
             };
             tracing::trace!(message = "writer buffer", size = buf.len());
             stream.write_buf(&mut buf).await?;
-        }
-    };
-    async move {
-        tokio::select! {
-            res = fut => res,
-            _ = controller.wait_for_shutdown() => Ok(())
         }
     }
 }

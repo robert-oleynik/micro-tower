@@ -34,11 +34,12 @@ async fn main() {
     });
 
     let addr: SocketAddr = "127.0.0.1:8000".parse().unwrap();
-    if let Err(err) = micro_tower::session::tcp::spawn(addr, service, &controller)
-        .await
-        .unwrap()
-    {
+    let service_handle = micro_tower::session::tcp::spawn(addr, service, &controller);
+    let shutdown_handle = controller.spawn_handler().unwrap();
+
+    if let Err(err) = service_handle.await.unwrap() {
         let report = Report::new(err.as_ref()).pretty(true);
         panic!("{report:?}")
     }
+    shutdown_handle.await.unwrap();
 }
