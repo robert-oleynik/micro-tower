@@ -1,7 +1,6 @@
 #![feature(error_reporter)]
 
 use std::cmp::min;
-use std::error::Report;
 use std::io::ErrorKind;
 use std::num::ParseIntError;
 use std::pin::Pin;
@@ -90,7 +89,7 @@ async fn parse_stream_test() {
             assert_eq!(err.kind(), ErrorKind::UnexpectedEof);
             assert_eq!(format!("{err}"), "Buffer Empty");
         } else {
-            let report = Report::new(err.as_ref()).pretty(true);
+            let report = micro_tower::report!(err.as_ref());
             panic!("{report:?}")
         }
     }
@@ -110,7 +109,7 @@ async fn parse_stream_err_test() {
             assert_eq!(err.kind(), ErrorKind::UnexpectedEof);
             assert_eq!(format!("{err}"), "Buffer Empty");
         } else {
-            let report = Report::new(err.as_ref()).pretty(true);
+            let report = micro_tower::report!(err.as_ref());
             panic!("Expected parse int error but got: {report:?}")
         }
     }
@@ -130,7 +129,7 @@ async fn parse_stream_bad_request() {
             assert_eq!(err.kind(), ErrorKind::UnexpectedEof);
             assert_eq!(format!("{err}"), "Buffer Empty");
         } else {
-            let report = Report::new(err.as_ref()).pretty(true);
+            let report = micro_tower::report!(err.as_ref());
             panic!("Expected parse int error but got: {report:?}")
         }
     }

@@ -1,4 +1,3 @@
-use std::error::Report;
 use std::future::Future;
 
 use bytes::BytesMut;
@@ -47,7 +46,7 @@ where
             buf = match ready.call(buf).await {
                 Ok(buf) => buf,
                 Err(err) => {
-                    let report = Report::new(err.err.as_ref()).pretty(true);
+                    let report = crate::report!(err.err.as_ref());
                     tracing::error!("{report:?}");
                     err.buf
                 }

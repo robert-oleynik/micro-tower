@@ -1,5 +1,3 @@
-use std::error::Report;
-
 use tokio::signal::unix;
 use tokio::signal::unix::SignalKind;
 use tokio::task::JoinHandle;
@@ -51,7 +49,7 @@ impl Controller {
                     match res {
                         Ok(_) => tracing::debug!("received ctrl-c shutdown request"),
                         Err(err) => {
-                            let report = Report::new(err).pretty(true);
+                            let report = crate::report!(err);
                             tracing::error!("{report:?}");
                         }
                     }

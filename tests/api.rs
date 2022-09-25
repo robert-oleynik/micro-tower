@@ -1,6 +1,5 @@
 #![feature(error_reporter)]
 
-use std::error::Report;
 use std::task::{Context, Poll};
 
 use bytes::{Buf, BufMut, BytesMut};
@@ -98,7 +97,7 @@ async fn api_call() {
             r#"{"type":"ok","data":{"m":42}}"#
         ),
         Err(err) => {
-            let report = Report::new(err).pretty(true);
+            let report = micro_tower::report!(err);
             panic!("{report:?}")
         }
     };
@@ -119,7 +118,7 @@ async fn api_bad_request() {
     match (call)().await {
         Ok(_) => panic!("expected error"),
         Err(err) => {
-            let report = Report::new(&err).pretty(true);
+            let report = micro_tower::report!(&err);
             eprintln!("{report:?}");
             assert_eq!(String::from_utf8_lossy(&err.buf[..]), r#"{"type":"400"}"#);
         }
@@ -141,7 +140,7 @@ async fn api_call_trailing() {
     match (call)().await {
         Ok(_) => panic!("expected error"),
         Err(err) => {
-            let report = Report::new(&err).pretty(true);
+            let report = micro_tower::report!(&err);
             eprintln!("{report:?}");
             assert_eq!(String::from_utf8_lossy(&err.buf[..]), r#"{"type":"400"}"#);
         }
@@ -163,7 +162,7 @@ async fn api_call_internal_error() {
     match (call)().await {
         Ok(_) => panic!("expected error"),
         Err(err) => {
-            let report = Report::new(&err).pretty(true);
+            let report = micro_tower::report!(&err);
             eprintln!("{report:?}");
             assert_eq!(String::from_utf8_lossy(&err.buf[..]), r#"{"type":"500"}"#);
         }

@@ -1,4 +1,4 @@
-use std::{error::Report, net::SocketAddr};
+use std::net::SocketAddr;
 
 use bytes::BytesMut;
 use tokio::net::TcpListener;
@@ -34,7 +34,7 @@ where
             let service = match builder.ready().await {
                 Ok(service) => service,
                 Err(err) => {
-                    let report = Report::new(err.as_ref()).pretty(true);
+                    let report = crate::report!(err.as_ref());
                     tracing::error!("{report:?}");
                     continue;
                 }
@@ -42,7 +42,7 @@ where
             let service = match service.call(addr).await {
                 Ok(service) => service,
                 Err(err) => {
-                    let report = Report::new(err.as_ref()).pretty(true);
+                    let report = crate::report!(err.as_ref());
                     tracing::error!("{report:?}");
                     continue;
                 }
@@ -53,7 +53,7 @@ where
             let controller = controller.clone();
             tokio::spawn(async move {
                 if let Err(err) = super::stream::spawn_fut(stream, service, controller).await {
-                    let report = Report::new(err.as_ref()).pretty(true);
+                    let report = crate::report!(err.as_ref());
                     tracing::error!("{report:?}")
                 }
             });

@@ -1,6 +1,5 @@
 #![feature(error_reporter)]
 
-use std::error::Report;
 use std::net::SocketAddr;
 use std::num::ParseIntError;
 
@@ -38,7 +37,7 @@ async fn main() {
     let shutdown_handle = controller.spawn_handler().unwrap();
 
     if let Err(err) = service_handle.await.unwrap() {
-        let report = Report::new(err.as_ref()).pretty(true);
+        let report = micro_tower::report!(err.as_ref());
         panic!("{report:?}")
     }
     shutdown_handle.await.unwrap();
