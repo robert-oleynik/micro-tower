@@ -5,15 +5,20 @@ use tokio::net::TcpListener;
 use tokio::task::JoinHandle;
 use tower::{BoxError, Service, ServiceExt};
 
-use crate::api;
+use crate::{api, shutdown::Controller};
 
-pub fn spawn<SB>(addr: SocketAddr, mut builder: SB) -> JoinHandle<Result<(), BoxError>>
+pub fn spawn<SB>(
+    addr: SocketAddr,
+    mut builder: SB,
+    mut controller: &Controller,
+) -> JoinHandle<Result<(), BoxError>>
 where
     SB: Service<SocketAddr, Error = BoxError> + Send + 'static,
     SB::Future: Send,
     SB::Response: Service<BytesMut, Response = BytesMut, Error = api::Error> + Send,
     <SB::Response as Service<BytesMut>>::Future: Send,
 {
+    let controller = controller.clone();
     tokio::spawn(async move {
         let listener = TcpListener::bind(addr).await?;
         tracing::info!(message = "listening on", port = addr.port());
@@ -41,8 +46,9 @@ where
 
             tracing::info!(message = "new connection", addr = format!("{addr}"));
 
+            let controller = controller.clone();
             tokio::spawn(async move {
-                if let Err(err) = super::stream::spawn_fut(stream, service).await {
+                if let Err(err) = super::stream::spawn_fut(stream, service, controller).await {
                     let report = Report::new(err.as_ref()).pretty(true);
                     tracing::error!("{report:?}")
                 }

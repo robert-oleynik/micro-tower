@@ -6,6 +6,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tower::ServiceExt;
 
 use crate::api;
+use crate::shutdown::Controller;
 use crate::util::BoxError;
 
 const BUF_SIZE: usize = 1024;
@@ -13,13 +14,14 @@ const BUF_SIZE: usize = 1024;
 pub fn spawn_fut<St, Sv>(
     mut stream: St,
     mut service: Sv,
+    controller: Controller,
 ) -> impl Future<Output = Result<(), BoxError>>
 where
     St: AsyncReadExt + AsyncWriteExt + Unpin + Send + 'static,
     Sv: tower::Service<BytesMut, Response = BytesMut, Error = api::Error> + Send + 'static,
     Sv::Future: Send,
 {
-    async move {
+    let fut = async move {
         let mut buf = BytesMut::new();
         let mut lbuf = [0_u8; BUF_SIZE];
         loop {
@@ -48,6 +50,12 @@ where
             };
             tracing::trace!(message = "writer buffer", size = buf.len());
             stream.write_buf(&mut buf).await?;
+        }
+    };
+    async move {
+        tokio::select! {
+            res = fut => res,
+            _ = controller.wait_for_shutdown() => Ok(())
         }
     }
 }

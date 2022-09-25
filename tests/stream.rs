@@ -10,6 +10,7 @@ use std::task::{Context, Poll};
 use bytes::{BufMut, BytesMut};
 use micro_tower::api::codec;
 use micro_tower::prelude::ServiceBuilderExt;
+use micro_tower::shutdown::Controller;
 use micro_tower::ServiceBuilder;
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 
@@ -82,8 +83,9 @@ async fn parse_stream_test() {
         .api::<String, codec::Json>()
         .service(service);
     let mut stream = Stream::from_input(r#""42""#);
+    let controller = Controller::default();
 
-    if let Err(err) = micro_tower::session::stream::spawn_fut(stream, service).await {
+    if let Err(err) = micro_tower::session::stream::spawn_fut(stream, service, controller).await {
         if let Some(err) = err.downcast_ref::<std::io::Error>() {
             assert_eq!(err.kind(), ErrorKind::UnexpectedEof);
             assert_eq!(format!("{err}"), "Buffer Empty");
@@ -101,8 +103,9 @@ async fn parse_stream_err_test() {
         .api::<String, codec::Json>()
         .service(service);
     let stream = Stream::from_input(r#""test""#);
+    let controller = Controller::default();
 
-    if let Err(err) = micro_tower::session::stream::spawn_fut(stream, service).await {
+    if let Err(err) = micro_tower::session::stream::spawn_fut(stream, service, controller).await {
         if let Some(err) = err.downcast_ref::<std::io::Error>() {
             assert_eq!(err.kind(), ErrorKind::UnexpectedEof);
             assert_eq!(format!("{err}"), "Buffer Empty");
@@ -120,8 +123,9 @@ async fn parse_stream_bad_request() {
         .api::<String, codec::Json>()
         .service(service);
     let stream = Stream::from_input(r#"test"#);
+    let controller = Controller::default();
 
-    if let Err(err) = micro_tower::session::stream::spawn_fut(stream, service).await {
+    if let Err(err) = micro_tower::session::stream::spawn_fut(stream, service, controller).await {
         if let Some(err) = err.downcast_ref::<std::io::Error>() {
             assert_eq!(err.kind(), ErrorKind::UnexpectedEof);
             assert_eq!(format!("{err}"), "Buffer Empty");

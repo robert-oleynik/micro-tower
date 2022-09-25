@@ -3,6 +3,7 @@
 pub mod api;
 pub mod builder;
 pub mod session;
+pub mod shutdown;
 pub mod util;
 
 pub mod prelude {
