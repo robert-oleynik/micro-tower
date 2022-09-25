@@ -33,7 +33,7 @@ impl Stream {
 impl AsyncRead for Stream {
     fn poll_read(
         mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
+        _cx: &mut Context<'_>,
         buf: &mut ReadBuf<'_>,
     ) -> Poll<std::io::Result<()>> {
         if self.ipos < self.input.len() {
@@ -52,20 +52,20 @@ impl AsyncRead for Stream {
 impl AsyncWrite for Stream {
     fn poll_write(
         mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
+        _cx: &mut Context<'_>,
         buf: &[u8],
     ) -> Poll<Result<usize, std::io::Error>> {
         self.output.put_slice(buf);
         Poll::Ready(Ok(buf.len()))
     }
 
-    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), std::io::Error>> {
+    fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Result<(), std::io::Error>> {
         Poll::Ready(Ok(()))
     }
 
     fn poll_shutdown(
         self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
+        _cx: &mut Context<'_>,
     ) -> Poll<Result<(), std::io::Error>> {
         Poll::Ready(Ok(()))
     }
@@ -82,7 +82,7 @@ async fn parse_stream_test() {
     let service = ServiceBuilder::new()
         .api::<String, codec::Json>()
         .service(service);
-    let mut stream = Stream::from_input(r#""42""#);
+    let stream = Stream::from_input(r#""42""#);
     let controller = Controller::default();
 
     if let Err(err) = micro_tower::session::stream::spawn_fut(stream, service, controller).await {
