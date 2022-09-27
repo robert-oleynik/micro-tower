@@ -56,12 +56,19 @@ mod util;
 ///
 /// the setter for inner services will always be named the same as the service argument.
 ///
-/// # Caveats
+/// # Attributes
 ///
-/// - non `async` functions are not supported
+/// - `crate = "<path>"`: Use to specify a crate path different from `::micro_tower`.
+/// - `name = "<name>"`: Change log name of service to `<name>`.
+/// - `extend`: Specifies that the service already exists and only `tower::Service` should be
+///   implemented.
+///
+/// # Caveats / Notes
+///
+/// - non-`async` functions are not supported
 /// - for error handling [`std::result::Result`] must be used (and no specialized like
 ///   [`std::io::Result`])
-/// - the generated service is not clonable
+/// - the generated service is **not** clonable
 #[proc_macro_attribute]
 pub fn service(args: TokenStream, items: TokenStream) -> TokenStream {
     let args = parse_macro_input!(args as AttributeArgs);
