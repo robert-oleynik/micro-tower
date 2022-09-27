@@ -9,7 +9,9 @@ pub fn generate(args: &args::Args, decl: &decl::Declaration) -> TokenStream {
     let name = decl.name();
     let name_builder = syn::Ident::new(format!("{name}_builder").as_ref(), Span::call_site());
     let name_str = args.name_str(name);
-    let pub_token = decl.pub_token();
+    let vis = decl.visibility();
+    let attr = decl.attributes();
+    let docs = decl.docs();
 
     let request_arg = decl.request_arg();
     let request_ty = decl.request_type();
@@ -39,14 +41,15 @@ pub fn generate(args: &args::Args, decl: &decl::Declaration) -> TokenStream {
     };
 
     quote::quote!(
+        #( #attr )*
         #[allow(non_camel_case_types)]
-        #pub_token struct #name {
+        #vis struct #name {
             #( #service_names0: #crate_path::util::borrow::Cell<#service_ty0> ),*
         }
 
         #[derive(Default)]
         #[allow(non_camel_case_types)]
-        #pub_token struct #name_builder {
+        #vis struct #name_builder {
             #( #service_names4: Option<#service_ty1> ),*
         }
 
@@ -80,6 +83,7 @@ pub fn generate(args: &args::Args, decl: &decl::Declaration) -> TokenStream {
             }
         }
 
+        #( #docs )*
         impl #crate_path::Service<#request_ty> for #name {
             type Response = #response_ty;
             type Error = #crate_path::util::BoxError;

@@ -10,8 +10,9 @@ use micro_tower::ServiceBuilder;
 use tracing::Level;
 use tracing_subscriber::FmtSubscriber;
 
+/// Service documentation
 #[micro_tower::codegen::service]
-async fn parse_str(request: String) -> Result<i32, ParseIntError> {
+pub async fn parse_str(request: String) -> Result<i32, ParseIntError> {
     request.parse()
 }
 

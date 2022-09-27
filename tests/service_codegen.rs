@@ -7,6 +7,7 @@ pub enum Error {
     Inner(#[from] BoxError),
 }
 
+/// Some documentation
 #[micro_tower::codegen::service]
 async fn hello_world(_: ()) -> &'static str {
     "Hello World"

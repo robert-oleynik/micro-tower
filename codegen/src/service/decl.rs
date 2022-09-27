@@ -1,12 +1,16 @@
 use std::ops::Deref;
 
 use quote::__private::Span;
-use syn::{parse::Parse, spanned::Spanned, ReturnType};
+use syn::parse::Parse;
+use syn::spanned::Spanned;
+use syn::ReturnType;
 
 use crate::util::diagnostic;
 
 pub struct Declaration {
-    pub_token: Option<syn::token::Pub>,
+    attr: Vec<syn::Attribute>,
+    docs: Vec<syn::Attribute>,
+    vis: syn::Visibility,
     signature: syn::Signature,
     block: Box<syn::Block>,
 }
@@ -46,8 +50,8 @@ impl Declaration {
     }
 
     /// Return `pub` token if service should be public and `None` if not.
-    pub fn pub_token(&self) -> Option<&syn::token::Pub> {
-        self.pub_token.as_ref()
+    pub fn visibility(&self) -> &syn::Visibility {
+        &self.vis
     }
 
     /// Returns reference to service's request argument used by the service implementation.
@@ -149,6 +153,14 @@ impl Declaration {
         &self.block
     }
 
+    pub fn attributes(&self) -> &[syn::Attribute] {
+        &self.attr[..]
+    }
+
+    pub fn docs(&self) -> &[syn::Attribute] {
+        &self.docs[..]
+    }
+
     pub fn output(&self) -> syn::Type {
         match &self.signature.output {
             ReturnType::Default => syn::parse_str("()").unwrap(),
@@ -159,10 +171,34 @@ impl Declaration {
 
 impl Parse for Declaration {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        let item: syn::ItemFn = input.parse()?;
+        let docs = item
+            .attrs
+            .iter()
+            .filter(|attr| attr.path.is_ident("doc"))
+            .cloned()
+            .collect();
+        let attr = item
+            .attrs
+            .into_iter()
+            .filter(|attr| match &attr.path {
+                p if p.is_ident("derive") => {
+                    diagnostic::emit_error(attr.span(), "Service cannot be derived");
+                    false
+                }
+                p if p.is_ident("doc") => false,
+                _ => true,
+            })
+            .collect();
+        let vis = item.vis;
+        let signature = item.sig;
+        let block = item.block;
         Ok(Self {
-            pub_token: input.parse()?,
-            signature: input.parse()?,
-            block: input.parse()?,
+            attr,
+            docs,
+            vis,
+            signature,
+            block,
         })
     }
 }
