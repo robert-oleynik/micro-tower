@@ -1,4 +1,7 @@
 use quote::__private::{Span, TokenStream};
+use syn::spanned::Spanned;
+
+use crate::util::diagnostic;
 
 pub mod args;
 pub mod decl;
@@ -40,48 +43,63 @@ pub fn generate(args: &args::Args, decl: &decl::Declaration) -> TokenStream {
         quote::quote!(Ok(result))
     };
 
-    quote::quote!(
-        #( #attr )*
-        #[allow(non_camel_case_types)]
-        #vis struct #name {
-            #( #service_names0: #crate_path::util::borrow::Cell<#service_ty0> ),*
-        }
+    if args.extend() && !attr.is_empty() {
+        diagnostic::emit_warning(
+            attr[0].span(),
+            "Service extended but got service attributes. Declare attributes on first service declaration"
+        );
+    }
 
-        #[derive(Default)]
-        #[allow(non_camel_case_types)]
-        #vis struct #name_builder {
-            #( #service_names4: Option<#service_ty1> ),*
-        }
-
-        impl #name {
-            pub fn builder() -> #name_builder {
-                #name_builder::default()
+    let decl = if !args.extend() {
+        quote::quote!(
+            #( #attr )*
+            #[allow(non_camel_case_types)]
+            #vis struct #name {
+                #( #service_names0: #crate_path::util::borrow::Cell<#service_ty0> ),*
             }
-        }
 
-        impl #name_builder {
-            #(
-                #[must_use]
-                pub fn #service_names2(mut self, inner: #service_ty2) -> Self {
-                    self.#service_names2 = Some(inner);
-                    self
+            #[derive(Default)]
+            #[allow(non_camel_case_types)]
+            #vis struct #name_builder {
+                #( #service_names4: Option<#service_ty1> ),*
+            }
+
+            impl #name {
+                pub fn builder() -> #name_builder {
+                    #name_builder::default()
                 }
-            )*
+            }
 
-            #[must_use]
-            pub fn build(mut self) -> #name {
+            impl #name_builder {
                 #(
-                    let #service_names5 = match self.#service_names5.take() {
-                        Some(inner) => inner,
-                        None => panic!("service `{0}` is not set", ::std::stringify!(#service_names5))
-                    };
-                ),*
+                    #[must_use]
+                    pub fn #service_names2(mut self, inner: #service_ty2) -> Self {
+                        self.#service_names2 = Some(inner);
+                        self
+                    }
+                )*
 
-                #name {
-                    #( #service_names6: #crate_path::util::borrow::Cell::new(#service_names6) ),*
+                #[must_use]
+                pub fn build(mut self) -> #name {
+                    #(
+                        let #service_names5 = match self.#service_names5.take() {
+                            Some(inner) => inner,
+                            None => panic!("service `{0}` is not set", ::std::stringify!(#service_names5))
+                        };
+                    ),*
+
+                    #name {
+                        #( #service_names6: #crate_path::util::borrow::Cell::new(#service_names6) ),*
+                    }
                 }
             }
-        }
+        )
+    } else {
+        quote::quote!()
+    };
+
+    quote::quote!(
+        #decl
 
         #( #docs )*
         impl #crate_path::Service<#request_ty> for #name {

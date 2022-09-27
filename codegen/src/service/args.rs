@@ -8,6 +8,8 @@ pub struct Args {
     #[darling(rename = "crate")]
     crate_path: Option<syn::LitStr>,
     name: Option<String>,
+    #[darling(default)]
+    extend: bool,
 }
 
 impl Args {
@@ -32,5 +34,10 @@ impl Args {
             || syn::LitStr::new(&name.to_string(), Span::call_site()),
             |name| syn::LitStr::new(name, Span::call_site()),
         )
+    }
+
+    /// Will return `true` if an existing service should be extended instead of fully generated.
+    pub fn extend(&self) -> bool {
+        self.extend
     }
 }
