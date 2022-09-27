@@ -31,9 +31,16 @@ pub fn generate(args: &args::Args, decl: &decl::Declaration) -> TokenStream {
     let service_names4 = decl.service_names();
     let service_names5 = decl.service_names();
     let service_names6 = decl.service_names();
+    let service_names7 = decl.service_names();
+    let service_names_borrowed0 = decl.borrowed_service_names();
+    let service_names_borrowed1 = decl.borrowed_service_names();
+    let service_names_borrowed2 = decl.borrowed_service_names();
+    let service_names_borrowed3 = decl.borrowed_service_names();
+    let service_names_borrowed4 = decl.borrowed_service_names();
     let service_ty0 = decl.service_types();
     let service_ty1 = decl.service_types();
     let service_ty2 = decl.service_types();
+    let service_ty3 = decl.service_types();
 
     let service_mut = decl.service_mut();
 
@@ -55,7 +62,8 @@ pub fn generate(args: &args::Args, decl: &decl::Declaration) -> TokenStream {
             #( #attr )*
             #[allow(non_camel_case_types)]
             #vis struct #name {
-                #( #service_names0: #crate_path::util::borrow::Cell<#service_ty0> ),*
+                #( #service_names0: #crate_path::util::borrow::Cell<#service_ty0>, )*
+                #( #service_names_borrowed0: Option<#crate_path::util::borrow::Borrowed<#service_ty3>> ),*
             }
 
             #[derive(Default)]
@@ -89,7 +97,8 @@ pub fn generate(args: &args::Args, decl: &decl::Declaration) -> TokenStream {
                     ),*
 
                     #name {
-                        #( #service_names6: #crate_path::util::borrow::Cell::new(#service_names6) ),*
+                        #( #service_names6: #crate_path::util::borrow::Cell::new(#service_names6), )*
+                        #( #service_names_borrowed1: None ),*
                     }
                 }
             }
@@ -109,18 +118,13 @@ pub fn generate(args: &args::Args, decl: &decl::Declaration) -> TokenStream {
 
             fn poll_ready(&mut self, cx: &mut ::std::task::Context<'_>) -> ::std::task::Poll<Result<(), Self::Error>> {
                 #(
-                    if let Some(mut inner) = self.#service_names3.try_borrow() {
-                        match inner.poll_ready(cx) {
-                            ::std::task::Poll::Ready(Ok(_)) => {}
-                            ::std::task::Poll::Ready(Err(err)) => {
-                                return ::std::task::Poll::Ready(Err(err).into())
-                            },
-                            ::std::task::Poll::Pending => {
-                                return::std::task::Poll::Pending
-                            }
-                        }
-                    }
+                    self.#service_names_borrowed2 = None;
+                    let #service_names3 = match self.#service_names3.try_borrow() {
+                        Some(service) => service,
+                        None => return ::std::task::Poll::Pending
+                    };
                 )*
+                #( self.#service_names_borrowed3 = Some(#service_names7); )*
                 ::std::task::Poll::Ready(Ok(()))
             }
 
@@ -128,7 +132,7 @@ pub fn generate(args: &args::Args, decl: &decl::Declaration) -> TokenStream {
                 use #crate_path::prelude::Instrument;
 
                 #(
-                    let #service_mut #service_names1 = match self.#service_names1.try_borrow() {
+                    let #service_mut #service_names1 = match self.#service_names_borrowed4.take() {
                         Some(inner) => inner,
                         None => {
                             return ::std::boxed::Box::pin(async move {

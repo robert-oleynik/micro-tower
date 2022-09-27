@@ -137,6 +137,12 @@ impl Declaration {
             })
     }
 
+    /// Puts `__borrow_` in front of each service name.
+    pub fn borrowed_service_names(&self) -> impl Iterator<Item = syn::Ident> + '_ {
+        self.service_names()
+            .map(|name| syn::Ident::new(&format!("__borrow_{name}"), name.span()))
+    }
+
     pub fn service_mut(&self) -> impl Iterator<Item = Option<syn::token::Mut>> + '_ {
         self.service_args()
             .filter_map(|arg| match arg.pat.as_ref() {
