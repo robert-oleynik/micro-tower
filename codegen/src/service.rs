@@ -4,7 +4,6 @@ use syn::spanned::Spanned;
 use crate::util::diagnostic;
 
 pub mod args;
-pub mod decl;
 
 pub struct Service {
     // Meta-Info
@@ -13,6 +12,7 @@ pub struct Service {
     asyncness: Option<syn::token::Async>,
     // Names
     name: syn::Ident,
+    name_str: syn::LitStr,
     name_builder: syn::Ident,
     // Request/Response
     request_arg: syn::PatType,
@@ -69,6 +69,7 @@ impl Service {
                 "Variadic service arguments are not supported",
             );
         }
+        let name_str = args.name_str(&decl.sig.ident);
         let doc_attrs = decl
             .attrs
             .into_iter()
@@ -96,13 +97,13 @@ impl Service {
                 syn::FnArg::Typed(ty) => Some(ty),
             })
             .collect::<Vec<_>>();
-        let request_arg = inputs
-            .first()
-            .map(|input| input.clone())
-            .unwrap_or_else(|| {
+        let request_arg = inputs.first().map_or_else(
+            || {
                 diagnostic::emit_error(decl.sig.paren_token.span, "Missing request parameter");
                 default_pat_type()
-            });
+            },
+            syn::PatType::clone,
+        );
         let inner_srv = inputs
             .iter()
             .skip(1)
@@ -173,6 +174,7 @@ impl Service {
             asyncness: decl.sig.asyncness,
             name_builder: syn::Ident::new(&format!("{}Builder", decl.sig.ident), Span::call_site()),
             name: decl.sig.ident,
+            name_str,
             request_arg,
             output,
             response,
@@ -254,8 +256,7 @@ impl Service {
 
     pub fn gen_service_block(&self) -> TokenStream {
         let crate_path = &self.crate_path;
-        let name = &self.name;
-        let name_str = syn::LitStr::new(&format!("{name}"), Span::call_site());
+        let name_str = &self.name_str;
         let block = self.block.as_ref();
         let ret = if self.failable {
             quote::quote!(Ok(result?))

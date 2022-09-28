@@ -62,7 +62,7 @@ async fn syn_service() {
     let mut service = sync_service::builder().build();
 
     let res = service.ready().await.unwrap().call(()).await.unwrap();
-    assert_eq!(res, "Hello World")
+    assert_eq!(res, "Hello World");
 }
 
 #[micro_tower::codegen::service]
