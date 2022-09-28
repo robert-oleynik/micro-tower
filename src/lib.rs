@@ -14,6 +14,7 @@ pub mod prelude {
 
 pub mod export {
     pub use derive_builder;
+    pub use tokio;
     pub use tracing;
 }
 

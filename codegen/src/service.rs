@@ -262,20 +262,33 @@ impl Service {
         } else {
             quote::quote!(Ok(result))
         };
-        let output = match &self.output {
-            syn::ReturnType::Default => quote::quote!(()),
-            syn::ReturnType::Type(_, t) => quote::quote!(#t),
-        };
-        quote::quote!(
-            use #crate_path::prelude::Instrument;
-            let fut: #crate_path::util::BoxFuture<#output> = Box::pin(async move #block);
-            let fut = async move {
-                let result = fut.await;
-                #ret
+        if self.asyncness.is_some() {
+            let output = match &self.output {
+                syn::ReturnType::Default => quote::quote!(()),
+                syn::ReturnType::Type(_, t) => quote::quote!(#t),
             };
-            let fut = fut.instrument(#crate_path::export::tracing::info_span!(#name_str));
-            Box::pin(fut)
-        )
+            quote::quote!(
+                use #crate_path::prelude::Instrument;
+                let fut: #crate_path::util::BoxFuture<#output> = Box::pin(async move #block);
+                let fut = async move {
+                    let result = fut.await;
+                    #ret
+                };
+                let fut = fut.instrument(#crate_path::export::tracing::trace_span!(#name_str));
+                Box::pin(fut)
+            )
+        } else {
+            let output = &self.output;
+            quote::quote!(
+                Box::pin(async move {
+                    let result = #crate_path::export::tokio::task::spawn_blocking(move || #output {
+                        let _span_ = #crate_path::export::tracing::trace_span!(#name_str).entered();
+                        #block
+                    }).await?;
+                    #ret
+                })
+            )
+        }
     }
 
     pub fn gen_service_impl(&self) -> TokenStream {

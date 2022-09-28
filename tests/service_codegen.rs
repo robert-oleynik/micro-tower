@@ -53,6 +53,19 @@ async fn call_inner_service() {
 }
 
 #[micro_tower::codegen::service]
+fn sync_service(_: ()) -> &'static str {
+    "Hello World"
+}
+
+#[tokio::test]
+async fn syn_service() {
+    let mut service = sync_service::builder().build();
+
+    let res = service.ready().await.unwrap().call(()).await.unwrap();
+    assert_eq!(res, "Hello World")
+}
+
+#[micro_tower::codegen::service]
 async fn extended_service(_: ()) {}
 
 #[micro_tower::codegen::service(extend)]
