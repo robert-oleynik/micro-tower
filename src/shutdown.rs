@@ -18,6 +18,7 @@ impl Clone for Controller {
 
 impl Controller {
     /// Create a new controller. Same as [`Controller::default`].
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
@@ -33,6 +34,10 @@ impl Controller {
     }
 
     /// Spawns a new handler which waits for shutdown signals.
+    ///
+    /// # Errors
+    ///
+    /// Will return `Err` if process wasn't able to acquire quit and terminate signal handler.
     pub fn spawn_handler(self) -> std::io::Result<JoinHandle<()>> {
         let mut qt = unix::signal(SignalKind::quit())?;
         let mut tm = unix::signal(SignalKind::terminate())?;

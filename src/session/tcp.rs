@@ -54,7 +54,7 @@ where
             tokio::spawn(async move {
                 if let Err(err) = super::stream::spawn_fut(stream, service, controller).await {
                     let report = crate::report!(err.as_ref());
-                    tracing::error!("{report:?}")
+                    tracing::error!("{report:?}");
                 }
             });
         }

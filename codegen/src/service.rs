@@ -57,7 +57,9 @@ pub fn generate(args: &args::Args, decl: &decl::Declaration) -> TokenStream {
         );
     }
 
-    let decl = if !args.extend() {
+    let decl = if args.extend() {
+        quote::quote!()
+    } else {
         quote::quote!(
             #( #attr )*
             #[allow(non_camel_case_types)]
@@ -103,8 +105,6 @@ pub fn generate(args: &args::Args, decl: &decl::Declaration) -> TokenStream {
                 }
             }
         )
-    } else {
-        quote::quote!()
     };
 
     quote::quote!(
