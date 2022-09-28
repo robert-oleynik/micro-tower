@@ -6,85 +6,230 @@ use crate::util::diagnostic;
 pub mod args;
 pub mod decl;
 
-pub fn generate(args: &args::Args, decl: &decl::Declaration) -> TokenStream {
-    decl.emit_errors();
-    let crate_path = args.crate_path();
-    let name = decl.name();
-    let name_builder = syn::Ident::new(format!("{name}_builder").as_ref(), Span::call_site());
-    let name_str = args.name_str(name);
-    let vis = decl.visibility();
-    let attr = decl.attributes();
-    let docs = decl.docs();
+pub struct Service {
+    // Meta-Info
+    crate_path: syn::Path,
+    vis: syn::Visibility,
+    asyncness: Option<syn::token::Async>,
+    // Names
+    name: syn::Ident,
+    name_builder: syn::Ident,
+    // Request/Response
+    request_arg: syn::PatType,
+    output: syn::ReturnType,
+    response: syn::Type,
+    failable: bool,
+    // Services
+    inner_srv: Vec<syn::Ident>,
+    inner_srv_m: Vec<Option<syn::token::Mut>>,
+    inner_srv_b: Vec<syn::Ident>,
+    inner_srv_t: Vec<syn::Type>,
+    // Attributes
+    doc_attrs: Vec<syn::Attribute>,
+    // Block
+    block: Box<syn::Block>,
+}
 
-    let request_arg = decl.request_arg();
-    let request_ty = decl.request_type();
-    let (is_result, response_ty) = decl.response_type();
+fn default_pat_type() -> syn::PatType {
+    syn::PatType {
+        attrs: Vec::new(),
+        pat: Box::new(syn::Pat::Wild(syn::PatWild {
+            attrs: Vec::new(),
+            underscore_token: syn::token::Underscore {
+                spans: [Span::call_site(); 1],
+            },
+        })),
+        colon_token: syn::token::Colon {
+            spans: [Span::call_site(); 1],
+        },
+        ty: syn::parse_str("()").unwrap(),
+    }
+}
 
-    let output = decl.output();
+impl Service {
+    pub fn new(args: &args::Args, decl: syn::ItemFn) -> Self {
+        if let Some(tk) = decl.sig.constness {
+            diagnostic::emit_error(tk.span(), "`const` services are not allowed");
+        }
+        if let Some(tk) = decl.sig.unsafety {
+            diagnostic::emit_error(tk.span(), "service must be safe");
+        }
+        if let Some(tk) = decl.sig.abi {
+            diagnostic::emit_error(
+                tk.extern_token.span(),
+                "`extern` is not allowed in this context",
+            );
+        }
+        if decl.sig.generics.lt_token.is_some() {
+            diagnostic::emit_error(decl.sig.generics.span(), "Not implemented yet");
+        }
+        if decl.sig.variadic.is_some() {
+            diagnostic::emit_error(
+                decl.sig.variadic.span(),
+                "Variadic service arguments are not supported",
+            );
+        }
+        let doc_attrs = decl
+            .attrs
+            .into_iter()
+            .filter(|attr| {
+                if attr.path.is_ident("doc") {
+                    true
+                } else {
+                    diagnostic::emit_error(
+                        attr.span(),
+                        "Attributes are not allowed before function declaration.",
+                    );
+                    false
+                }
+            })
+            .collect::<Vec<_>>();
+        let inputs = decl
+            .sig
+            .inputs
+            .into_iter()
+            .filter_map(|arg| match arg {
+                syn::FnArg::Receiver(recv) => {
+                    diagnostic::emit_error(recv.span(), "`self` is not allowed in this context");
+                    None
+                }
+                syn::FnArg::Typed(ty) => Some(ty),
+            })
+            .collect::<Vec<_>>();
+        let request_arg = inputs
+            .first()
+            .map(|input| input.clone())
+            .unwrap_or_else(|| {
+                diagnostic::emit_error(decl.sig.paren_token.span, "Missing request parameter");
+                default_pat_type()
+            });
+        let inner_srv = inputs
+            .iter()
+            .skip(1)
+            .filter_map(|arg| match arg.pat.as_ref() {
+                syn::Pat::Ident(id) => Some(id.ident.clone()),
+                syn::Pat::Wild(_) => Some(syn::parse_str("_").unwrap()),
+                _ => {
+                    diagnostic::emit_error(arg.span(), "Invalid argument declaration");
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
+        let inner_srv_b = inner_srv
+            .iter()
+            .map(|srv| syn::Ident::new(&format!("__borrowed_{srv}"), Span::call_site()))
+            .collect();
+        let inner_srv_m = inputs
+            .iter()
+            .skip(1)
+            .filter_map(|arg| match arg.pat.as_ref() {
+                syn::Pat::Ident(id) => Some(id.mutability),
+                syn::Pat::Wild(_) => Some(None),
+                _ => None,
+            })
+            .collect();
+        let inner_srv_t = inputs
+            .into_iter()
+            .skip(1)
+            .map(|input| (*input.ty).clone())
+            .collect();
 
-    let block = decl.block();
+        let output = decl.sig.output;
+        let (failable, response) = match output {
+            syn::ReturnType::Default => (false, syn::parse_str("()").unwrap()),
+            syn::ReturnType::Type(_, ref ty) => match **ty {
+                syn::Type::Path(ref p) => {
+                    if let Some(ty) = p
+                        .path
+                        .segments
+                        .last()
+                        .and_then(|seg| {
+                            if seg.ident == "Result" {
+                                return Some(seg);
+                            }
+                            None
+                        })
+                        .and_then(|seg| match &seg.arguments {
+                            syn::PathArguments::AngleBracketed(args) => args.args.first(),
+                            _ => None,
+                        })
+                        .and_then(|arg| match arg {
+                            syn::GenericArgument::Type(ty) => Some(ty.clone()),
+                            _ => None,
+                        })
+                    {
+                        (true, ty)
+                    } else {
+                        (false, *ty.clone())
+                    }
+                }
+                _ => (false, *ty.clone()),
+            },
+        };
 
-    let service_names0 = decl.service_names();
-    let service_names1 = decl.service_names();
-    let service_names2 = decl.service_names();
-    let service_names3 = decl.service_names();
-    let service_names4 = decl.service_names();
-    let service_names5 = decl.service_names();
-    let service_names6 = decl.service_names();
-    let service_names7 = decl.service_names();
-    let service_names_borrowed0 = decl.borrowed_service_names();
-    let service_names_borrowed1 = decl.borrowed_service_names();
-    let service_names_borrowed2 = decl.borrowed_service_names();
-    let service_names_borrowed3 = decl.borrowed_service_names();
-    let service_names_borrowed4 = decl.borrowed_service_names();
-    let service_ty0 = decl.service_types();
-    let service_ty1 = decl.service_types();
-    let service_ty2 = decl.service_types();
-    let service_ty3 = decl.service_types();
-
-    let service_mut = decl.service_mut();
-
-    let ret = if is_result {
-        quote::quote!(Ok(result?))
-    } else {
-        quote::quote!(Ok(result))
-    };
-
-    if args.extend() && !attr.is_empty() {
-        diagnostic::emit_warning(
-            attr[0].span(),
-            "Service extended but got service attributes. Declare attributes on first service declaration"
-        );
+        Self {
+            crate_path: args.crate_path(),
+            vis: decl.vis,
+            asyncness: decl.sig.asyncness,
+            name_builder: syn::Ident::new(&format!("{}Builder", decl.sig.ident), Span::call_site()),
+            name: decl.sig.ident,
+            request_arg,
+            output,
+            response,
+            failable,
+            inner_srv,
+            inner_srv_b,
+            inner_srv_t,
+            inner_srv_m,
+            doc_attrs,
+            block: decl.block,
+        }
     }
 
-    let decl = if args.extend() {
-        quote::quote!()
-    } else {
+    pub fn gen_service_decl(&self) -> TokenStream {
+        let crate_path = &self.crate_path;
+        let name = &self.name;
+        let name_builder = &self.name_builder;
+        let vis = &self.vis;
+        let srv_names = &self.inner_srv;
+        let srv_names_b = &self.inner_srv_b;
+        let srv_ty = &self.inner_srv_t;
         quote::quote!(
-            #( #attr )*
             #[allow(non_camel_case_types)]
             #vis struct #name {
-                #( #service_names0: #crate_path::util::borrow::Cell<#service_ty0>, )*
-                #( #service_names_borrowed0: Option<#crate_path::util::borrow::Borrowed<#service_ty3>> ),*
-            }
-
-            #[derive(Default)]
-            #[allow(non_camel_case_types)]
-            #vis struct #name_builder {
-                #( #service_names4: Option<#service_ty1> ),*
+                #( #srv_names: #crate_path::util::borrow::Cell<#srv_ty>, )*
+                #( #srv_names_b: Option<#crate_path::util::borrow::Borrowed<#srv_ty>> ),*
             }
 
             impl #name {
+                #[must_use]
                 pub fn builder() -> #name_builder {
                     #name_builder::default()
                 }
+            }
+        )
+    }
+
+    pub fn gen_service_builder(&self) -> TokenStream {
+        let crate_path = &self.crate_path;
+        let name = &self.name;
+        let name_builder = &self.name_builder;
+        let vis = &self.vis;
+        let srv_names = &self.inner_srv;
+        let srv_names_b = &self.inner_srv_b;
+        let srv_ty = &self.inner_srv_t;
+        quote::quote!(
+            #[derive(Default)]
+            #[allow(non_camel_case_types)]
+            #vis struct #name_builder {
+                #( #srv_names: Option<#srv_ty> ),*
             }
 
             impl #name_builder {
                 #(
                     #[must_use]
-                    pub fn #service_names2(mut self, inner: #service_ty2) -> Self {
-                        self.#service_names2 = Some(inner);
+                    pub fn #srv_names(mut self, inner: #srv_ty) -> Self {
+                        self.#srv_names = Some(inner);
                         self
                     }
                 )*
@@ -92,67 +237,109 @@ pub fn generate(args: &args::Args, decl: &decl::Declaration) -> TokenStream {
                 #[must_use]
                 pub fn build(mut self) -> #name {
                     #(
-                        let #service_names5 = match self.#service_names5.take() {
+                        let #srv_names = match self.#srv_names.take() {
                             Some(inner) => inner,
-                            None => panic!("service `{0}` is not set", ::std::stringify!(#service_names5))
+                            None => panic!("service `{}` is not set for `{}`", ::std::stringify!(#srv_names), ::std::stringify!(#name))
                         };
                     ),*
 
                     #name {
-                        #( #service_names6: #crate_path::util::borrow::Cell::new(#service_names6), )*
-                        #( #service_names_borrowed1: None ),*
+                        #( #srv_names: #crate_path::util::borrow::Cell::new(#srv_names), )*
+                        #( #srv_names_b: None ),*
                     }
                 }
             }
         )
-    };
+    }
 
-    quote::quote!(
-        #decl
+    pub fn gen_service_block(&self) -> TokenStream {
+        let crate_path = &self.crate_path;
+        let name = &self.name;
+        let name_str = syn::LitStr::new(&format!("{name}"), Span::call_site());
+        let block = self.block.as_ref();
+        let ret = if self.failable {
+            quote::quote!(Ok(result?))
+        } else {
+            quote::quote!(Ok(result))
+        };
+        let output = match &self.output {
+            syn::ReturnType::Default => quote::quote!(()),
+            syn::ReturnType::Type(_, t) => quote::quote!(#t),
+        };
+        quote::quote!(
+            use #crate_path::prelude::Instrument;
+            let fut: #crate_path::util::BoxFuture<#output> = Box::pin(async move #block);
+            let fut = async move {
+                let result = fut.await;
+                #ret
+            };
+            let fut = fut.instrument(#crate_path::export::tracing::info_span!(#name_str));
+            Box::pin(fut)
+        )
+    }
 
-        #( #docs )*
-        impl #crate_path::Service<#request_ty> for #name {
-            type Response = #response_ty;
-            type Error = #crate_path::util::BoxError;
-            type Future = #crate_path::util::BoxFuture<Result<Self::Response, Self::Error>>;
+    pub fn gen_service_impl(&self) -> TokenStream {
+        let crate_path = &self.crate_path;
+        let name = &self.name;
+        let docs = &self.doc_attrs;
+        let request_ty = self.request_arg.ty.as_ref();
+        let request_arg = &self.request_arg;
+        let response_ty = &self.response;
+        let srv_names_b = &self.inner_srv_b;
+        let srv_names = &self.inner_srv;
+        let srv_mut = &self.inner_srv_m;
+        let block = self.gen_service_block();
+        quote::quote!(
+            #( #docs )*
+            impl #crate_path::Service<#request_ty> for #name {
+                type Response = #response_ty;
+                type Error = #crate_path::util::BoxError;
+                type Future = #crate_path::util::BoxFuture<Result<Self::Response, Self::Error>>;
 
-            fn poll_ready(&mut self, cx: &mut ::std::task::Context<'_>) -> ::std::task::Poll<Result<(), Self::Error>> {
-                #(
-                    self.#service_names_borrowed2 = None;
-                    let #service_names3 = match self.#service_names3.try_borrow() {
-                        Some(service) => service,
-                        None => return ::std::task::Poll::Pending
-                    };
-                )*
-                #( self.#service_names_borrowed3 = Some(#service_names7); )*
-                ::std::task::Poll::Ready(Ok(()))
+                fn poll_ready(&mut self, cx: &mut ::std::task::Context<'_>) -> ::std::task::Poll<Result<(), Self::Error>> {
+                    #(
+                        self.#srv_names_b = None;
+                        let #srv_names = match self.#srv_names.try_borrow() {
+                            Some(service) => service,
+                            None => return ::std::task::Poll::Pending
+                        };
+                    )*
+                    #( self.#srv_names_b = Some(#srv_names); )*
+                    ::std::task::Poll::Ready(Ok(()))
+                }
+
+                fn call(&mut self, #request_arg) -> Self::Future {
+                    #(
+                        let #srv_mut #srv_names = match self.#srv_names_b.take() {
+                            Some(inner) => inner,
+                            None => {
+                                return ::std::boxed::Box::pin(async move {
+                                    let err = #crate_path::service::NotReady(::std::stringify!(#srv_names));
+                                    Err(::std::boxed::Box::new(err).into())
+                                })
+                            }
+                        };
+                    ),*
+                    #block
+                }
             }
+        )
+    }
 
-            fn call(&mut self, #request_arg) -> Self::Future {
-                use #crate_path::prelude::Instrument;
+    pub fn generate(&mut self, args: &args::Args) -> TokenStream {
+        let service_decl = (!args.extend()).then(|| {
+            let decl = self.gen_service_decl();
+            let builder = self.gen_service_builder();
+            quote::quote!(
+                #decl
+                #builder
+            )
+        });
+        let service_impl = self.gen_service_impl();
+        quote::quote!(
+            #service_decl
 
-                #(
-                    let #service_mut #service_names1 = match self.#service_names_borrowed4.take() {
-                        Some(inner) => inner,
-                        None => {
-                            return ::std::boxed::Box::pin(async move {
-                                let err = #crate_path::service::NotReady(::std::stringify!(#service_names1));
-                                Err(::std::boxed::Box::new(err).into())
-                            })
-                        }
-                    };
-                ),*
-
-                let fut: #crate_path::util::BoxFuture<#output> = Box::pin(async move #block);
-                let fut = async move {
-                    let result = fut.await;
-                    #ret
-                };
-
-                let fut = fut.instrument(#crate_path::export::tracing::info_span!(#name_str));
-
-                Box::pin(fut)
-            }
-        }
-    )
+            #service_impl
+        )
+    }
 }

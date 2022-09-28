@@ -2,6 +2,7 @@
 
 use darling::FromMeta;
 use proc_macro::TokenStream;
+use service::Service;
 use syn::{parse_macro_input, AttributeArgs};
 
 mod service;
@@ -76,6 +77,6 @@ pub fn service(args: TokenStream, items: TokenStream) -> TokenStream {
         Ok(args) => args,
         Err(err) => return TokenStream::from(err.write_errors()),
     };
-    let decl = parse_macro_input!(items as service::decl::Declaration);
-    service::generate(&args, &decl).into()
+    let decl = parse_macro_input!(items as syn::ItemFn);
+    Service::new(&args, decl).generate(&args).into()
 }
