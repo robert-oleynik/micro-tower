@@ -14,6 +14,10 @@ pub type BoxService<R, S> = Box<
             Error = BoxError,
         > + Send,
 >;
+
+pub type BoxCloneService<R, S> =
+    tower::util::BoxCloneService<R, <S as Service<R>>::Response, BoxError>;
+
 pub type BoxFuture<O> = Pin<Box<dyn Future<Output = O> + Send>>;
 
 /// Generates a [`std::error::Report`] with `pretty` and `backtrace` enabled
