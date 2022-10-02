@@ -18,13 +18,7 @@ pub mod export {
     pub use tracing;
 }
 
-pub mod service {
-    pub use tower::*;
-
-    #[derive(Debug, thiserror::Error)]
-    #[error("service `{0}` not ready")]
-    pub struct NotReady(pub &'static str);
-}
+pub mod service;
 
 pub use micro_tower_codegen as codegen;
 pub use tower::Service;
