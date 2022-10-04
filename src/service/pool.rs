@@ -21,20 +21,24 @@ pub enum Error {
     Failed,
 }
 
+type CreateHandle<T, E> = JoinHandle<Result<T, E>>;
+type ServiceSet<S, Req> = Balance<ServiceList<Vec<S>>, Req>;
+
 enum CreateFuture<MS, Req>
 where
     MS: Service<()>,
     MS::Response: tower::Service<Req, Error = BoxError>,
 {
     Pending {
-        handle: JoinHandle<Result<Balance<ServiceList<Vec<MS::Response>>, Req>, MS::Error>>,
+        handle: CreateHandle<ServiceSet<MS::Response, Req>, MS::Error>,
     },
     Ready {
-        services: Balance<ServiceList<Vec<MS::Response>>, Req>,
+        services: ServiceSet<MS::Response, Req>,
     },
     Failed,
 }
 
+/// Balances requests between multiple services.
 pub struct Pool<MS, Req>
 where
     MS: Service<()>,
@@ -91,20 +95,20 @@ where
             CreateFuture::Pending { ref mut handle } => match handle.poll_unpin(cx) {
                 Poll::Ready(Ok(Ok(services))) => {
                     self.services = CreateFuture::Ready { services };
-                    return Poll::Ready(Ok(()));
+                    Poll::Ready(Ok(()))
                 }
                 Poll::Ready(Ok(Err(err))) => {
                     self.services = CreateFuture::Failed;
-                    return Poll::Ready(Err(err.into()));
+                    Poll::Ready(Err(err.into()))
                 }
                 Poll::Ready(Err(err)) => {
                     self.services = CreateFuture::Failed;
-                    return Poll::Ready(Err(err.into()));
+                    Poll::Ready(Err(err.into()))
                 }
-                Poll::Pending => return Poll::Pending,
+                Poll::Pending => Poll::Pending,
             },
             CreateFuture::Ready { ref mut services } => services.poll_ready(cx),
-            CreateFuture::Failed => return Poll::Ready(Err(Error::Failed.into())),
+            CreateFuture::Failed => Poll::Ready(Err(Error::Failed.into())),
         }
     }
 
@@ -117,6 +121,7 @@ where
 }
 
 impl<Req> Layer<Req> {
+    #[must_use]
     pub fn with_size(size: usize) -> Self {
         Self {
             size,
