@@ -68,12 +68,12 @@ where
         tracing::debug!(message = "creating service pool", size);
         let handle = tokio::spawn(async move {
             let mut services = Vec::with_capacity(size);
-            for i in 0..size {
+            for _ in 0..size {
                 let target = target.clone();
                 let service = make_service.ready().await?.call(target).await?;
-                tracing::trace!(message = "created pooled service", i);
                 services.push(service);
             }
+            tracing::debug!(message = "service pool created", size);
             Ok(Balance::new(ServiceList::new(services)))
         });
 
