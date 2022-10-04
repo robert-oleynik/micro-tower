@@ -100,7 +100,7 @@ where
             CreateFuture::Pending { ref mut handle } => match handle.poll_unpin(cx) {
                 Poll::Ready(Ok(Ok(services))) => {
                     self.services = CreateFuture::Ready { services };
-                    Poll::Ready(Ok(()))
+                    self.poll_ready(cx)
                 }
                 Poll::Ready(Ok(Err(err))) => {
                     self.services = CreateFuture::Failed;
