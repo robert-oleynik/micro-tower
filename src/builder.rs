@@ -12,7 +12,11 @@ pub trait ServiceBuilderExt<L> {
 
 pub trait ServicePoolBuilderExt<L> {
     /// Wraps the make service to create a pool with `count` many services.
-    fn pooled<Req>(self, count: usize) -> ServiceBuilder<Stack<pool::Layer<Req>, L>>;
+    fn pooled<T, Req>(
+        self,
+        count: usize,
+        target: T,
+    ) -> ServiceBuilder<Stack<pool::Layer<T, Req>, L>>;
 }
 
 impl<L> ServiceBuilderExt<L> for ServiceBuilder<L> {
@@ -22,7 +26,11 @@ impl<L> ServiceBuilderExt<L> for ServiceBuilder<L> {
 }
 
 impl<L> ServicePoolBuilderExt<L> for ServiceBuilder<L> {
-    fn pooled<Req>(self, count: usize) -> ServiceBuilder<Stack<pool::Layer<Req>, L>> {
-        self.layer(pool::Layer::with_size(count))
+    fn pooled<T, Req>(
+        self,
+        count: usize,
+        target: T,
+    ) -> ServiceBuilder<Stack<pool::Layer<T, Req>, L>> {
+        self.layer(pool::Layer::with_size(count, target))
     }
 }

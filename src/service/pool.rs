@@ -24,9 +24,9 @@ pub enum Error {
 type CreateHandle<T, E> = JoinHandle<Result<T, E>>;
 type ServiceSet<S, Req> = Balance<ServiceList<Vec<S>>, Req>;
 
-enum CreateFuture<MS, Req>
+enum CreateFuture<MS, Target, Req>
 where
-    MS: Service<()>,
+    MS: Service<Target>,
     MS::Response: tower::Service<Req, Error = BoxError>,
 {
     Pending {
@@ -39,34 +39,38 @@ where
 }
 
 /// Balances requests between multiple services.
-pub struct Pool<MS, Req>
+pub struct Pool<MS, Target, Req>
 where
-    MS: Service<()>,
+    MS: Service<Target>,
     MS::Response: tower::Service<Req, Error = BoxError>,
 {
-    services: CreateFuture<MS, Req>,
+    services: CreateFuture<MS, Target, Req>,
+    _p: PhantomData<Target>,
 }
 
-pub struct Layer<Req> {
+pub struct Layer<Target, Req> {
     size: usize,
+    target: Target,
     _p: PhantomData<Req>,
 }
 
-impl<MS, Req> Pool<MS, Req>
+impl<MS, Target, Req> Pool<MS, Target, Req>
 where
+    Target: Clone + Send + 'static,
     Req: Send + 'static,
-    MS: Service<()> + Send + 'static,
+    MS: Service<Target> + Send + 'static,
     MS::Response: tower::Service<Req, Error = BoxError> + Send,
     MS::Error: Send,
     MS::Future: Send,
 {
     /// Create new pool with `count` many services and `make_service` to create the inner services.
-    pub fn with_size(size: usize, mut make_service: MS) -> Self {
+    pub fn with_size(size: usize, mut make_service: MS, target: Target) -> Self {
         tracing::debug!(message = "creating service pool", size);
         let handle = tokio::spawn(async move {
             let mut services = Vec::with_capacity(size);
             for i in 0..size {
-                let service = make_service.ready().await?.call(()).await?;
+                let target = target.clone();
+                let service = make_service.ready().await?.call(target).await?;
                 tracing::trace!(message = "created pooled service", i);
                 services.push(service);
             }
@@ -75,13 +79,14 @@ where
 
         Self {
             services: CreateFuture::Pending { handle },
+            _p: PhantomData,
         }
     }
 }
 
-impl<MS, Req> tower::Service<Req> for Pool<MS, Req>
+impl<MS, Target, Req> tower::Service<Req> for Pool<MS, Target, Req>
 where
-    MS: Service<()>,
+    MS: Service<Target>,
     MS::Response: tower::Service<Req, Error = BoxError> + tower::load::Load,
     MS::Error: std::error::Error + Send + Sync + 'static,
     <MS::Response as tower::load::Load>::Metric: std::fmt::Debug,
@@ -120,27 +125,30 @@ where
     }
 }
 
-impl<Req> Layer<Req> {
+impl<Target, Req> Layer<Target, Req> {
     #[must_use]
-    pub fn with_size(size: usize) -> Self {
+    pub fn with_size(size: usize, target: Target) -> Self {
         Self {
             size,
+            target,
             _p: PhantomData,
         }
     }
 }
 
-impl<MS, Req> tower::Layer<MS> for Layer<Req>
+impl<MS, Target, Req> tower::Layer<MS> for Layer<Target, Req>
 where
     Req: Send + 'static,
-    MS: Service<()> + Send + 'static,
+    MS: Service<Target> + Send + 'static,
     MS::Response: tower::Service<Req, Error = BoxError> + Send,
     MS::Error: Send,
     MS::Future: Send,
+    Target: Clone + Send + 'static,
 {
-    type Service = Pool<MS, Req>;
+    type Service = Pool<MS, Target, Req>;
 
     fn layer(&self, inner: MS) -> Self::Service {
-        Pool::with_size(self.size, inner)
+        let target = self.target.clone();
+        Pool::with_size(self.size, inner, target)
     }
 }
