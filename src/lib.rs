@@ -1,4 +1,5 @@
 #![feature(error_reporter)]
+#![feature(type_alias_impl_trait)]
 
 pub mod api;
 pub mod builder;
@@ -7,7 +8,7 @@ pub mod shutdown;
 pub mod util;
 
 pub mod prelude {
-    pub use crate::builder::ServiceBuilderExt;
+    pub use crate::builder::{ServiceBuilderExt, ServicePoolBuilderExt};
     pub use tower::{Layer, Service, ServiceExt};
     pub use tracing::Instrument;
 }

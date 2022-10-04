@@ -3,7 +3,6 @@ pub mod borrow;
 use std::future::Future;
 use std::pin::Pin;
 
-pub use ring_queue::RingStorage;
 pub use tower::BoxError;
 use tower::Service;
 

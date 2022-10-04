@@ -1,3 +1,5 @@
+pub mod pool;
+
 pub use tower::*;
 
 #[derive(Debug, thiserror::Error)]
