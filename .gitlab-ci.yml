@@ -2,7 +2,7 @@ build:debug:
   image: rustlang/rust:nightly
   stage: build
   script:
-    - cargo build --locked
+    - cargo build
   cache:
     key: build:debug:artifacts
     paths:
