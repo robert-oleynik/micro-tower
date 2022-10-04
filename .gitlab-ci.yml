@@ -1,0 +1,57 @@
+build:debug:
+  image: rustlang/rust:nightly
+  stage: build
+  script:
+    - cargo build --locked
+  cache:
+    key: build:debug:artifacts
+    paths:
+      - target
+
+test:debug unit:
+  image: rustlang/rust:nightly
+  stage: test
+  script:
+    - cargo test --locked --workspace --lib --tests
+  cache:
+    key: build:debug:artifacts
+    paths:
+      - target
+  dependencies:
+    - build:debug
+  needs:
+    - build:debug
+
+test:build examples:
+  image: rustlang/rust:nightly
+  stage: test
+  script:
+    - cargo build --examples
+  cache:
+    key: build:debug:artifacts
+    paths:
+      - target
+  dependencies:
+    - build:debug
+  needs:
+    - build:debug
+
+test:debug clippy:
+  image: rustlang/rust:nightly
+  stage: test
+  script:
+    - cargo clippy --locked --bins --examples --lib --tests -- -D clippy::suspicious -D clippy::style -D clippy::complexity -D clippy::perf -D clippy::pendantic -A clippy::tabs_in_doc_comments -A clippy::too-many-lines
+  cache:
+    key: build:debug:artifacts
+    paths:
+      - target
+  dependencies:
+    - build:debug
+  needs:
+    - build:debug
+
+test format:
+  image: rustlang/rust:nightly
+  stage: test
+  script:
+    - cargo fmt --check
