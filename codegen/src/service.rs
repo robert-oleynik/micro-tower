@@ -243,7 +243,7 @@ impl Service {
                             Some(inner) => inner,
                             None => panic!("service `{}` is not set for `{}`", ::std::stringify!(#srv_names), ::std::stringify!(#name))
                         };
-                    ),*
+                    )*
 
                     #name {
                         #( #srv_names: #crate_path::util::borrow::Cell::new(#srv_names), )*
@@ -326,14 +326,12 @@ impl Service {
                     #(
                         let #srv_mut #srv_names = match self.#srv_names_b.take() {
                             Some(inner) => inner,
-                            None => {
-                                return ::std::boxed::Box::pin(async move {
+                            None => return ::std::boxed::Box::pin(async move {
                                     let err = #crate_path::service::NotReady(::std::stringify!(#srv_names));
                                     Err(::std::boxed::Box::new(err).into())
-                                })
-                            }
+                            })
                         };
-                    ),*
+                    )*
                     #block
                 }
             }

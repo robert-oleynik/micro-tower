@@ -137,3 +137,21 @@ async fn error_service(_: ()) -> Result<(), ErrorMockup> {
     error_mockup()?;
     Ok(())
 }
+
+#[tokio::test]
+async fn call_error_service() {
+    let mut service = error_service::builder().build();
+    service.ready().await.unwrap().call(()).await.unwrap();
+}
+
+#[micro_tower::codegen::service]
+async fn add_service(_: (), lhs: i64, rhs: i64) -> i64 {
+    *lhs + *rhs
+}
+
+#[tokio::test]
+async fn call_add_service() {
+    let mut service = add_service::builder().lhs(8).rhs(16).build();
+    let rep = service.ready().await.unwrap().call(()).await.unwrap();
+    assert_eq!(rep, 24);
+}
