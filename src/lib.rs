@@ -1,5 +1,4 @@
 #![feature(error_reporter)]
-#![feature(type_alias_impl_trait)]
 
 pub mod api;
 pub mod builder;

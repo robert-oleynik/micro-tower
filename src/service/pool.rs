@@ -1,11 +1,12 @@
 use futures::FutureExt;
-use std::future::Future;
 use std::marker::PhantomData;
 use std::task::{Context, Poll};
 use tokio::task::{JoinError, JoinHandle};
 use tower::balance::p2c::Balance;
 use tower::discover::ServiceList;
 use tower::{BoxError, Service, ServiceExt};
+
+use crate::util::BoxFuture;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -89,11 +90,12 @@ where
     MS: Service<Target>,
     MS::Response: tower::Service<Req, Error = BoxError> + tower::load::Load,
     MS::Error: std::error::Error + Send + Sync + 'static,
+    <MS::Response as tower::Service<Req>>::Future: Send + 'static,
     <MS::Response as tower::load::Load>::Metric: std::fmt::Debug,
 {
     type Response = <MS::Response as tower::Service<Req>>::Response;
     type Error = BoxError;
-    type Future = impl Future<Output = Result<Self::Response, Self::Error>>;
+    type Future = BoxFuture<Result<Self::Response, Self::Error>>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         match self.services {
@@ -119,7 +121,7 @@ where
 
     fn call(&mut self, req: Req) -> Self::Future {
         match self.services {
-            CreateFuture::Ready { ref mut services } => services.call(req),
+            CreateFuture::Ready { ref mut services } => Box::pin(services.call(req)),
             _ => unimplemented!("called before ready"),
         }
     }
