@@ -40,7 +40,7 @@ test:debug clippy:
   image: rustlang/rust:nightly
   stage: test
   script:
-    - cargo clippy --bins --examples --lib --tests -- -D clippy::suspicious -D clippy::style -D clippy::complexity -D clippy::perf -D clippy::pendantic -A clippy::tabs_in_doc_comments -A clippy::too-many-lines
+    - cargo clippy --bins --examples --lib --tests -- -D clippy::suspicious -D clippy::style -D clippy::complexity -D clippy::perf -D clippy::pedantic -A clippy::tabs_in_doc_comments -A clippy::too-many-lines
   cache:
     key: build:debug:artifacts
     paths:
