@@ -122,3 +122,18 @@ async fn call_inner_ext_service() {
         .unwrap();
     assert_eq!(response, "Hello World");
 }
+
+#[derive(Debug, thiserror::Error)]
+#[error("placeholder")]
+struct ErrorMockup;
+
+#[allow(clippy::unnecessary_wraps)]
+fn error_mockup() -> Result<(), ErrorMockup> {
+    Ok(())
+}
+
+#[micro_tower::codegen::service]
+async fn error_service(_: ()) -> Result<(), ErrorMockup> {
+    error_mockup()?;
+    Ok(())
+}
