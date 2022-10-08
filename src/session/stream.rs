@@ -53,7 +53,7 @@ where
                 err.buf
             }
         };
-        tracing::trace!(message = "writer buffer", size = buf.len());
+        tracing::trace!(message = "write buffer", size = buf.len());
         stream.write_buf(&mut buf).await?;
     }
 }
