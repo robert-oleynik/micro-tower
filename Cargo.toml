@@ -2,6 +2,20 @@
 name = "micro-tower"
 version = "0.1.0"
 edition = "2021"
+description = "micro-tower is a framework to generate and manage micro services."
+license = "BSD-2-Clause"
+repository = "https://gitlab.com/robert-oleynik/micro-tower"
+keywords = [
+	"io",
+	"async",
+	"non-blocking",
+	"service",
+	"framework"
+]
+categories = [
+	"asynchronous",
+	"network-programming"
+]
 
 [workspace]
 members = [
@@ -30,6 +44,7 @@ version = "~0.4.13"
 features = ["full"]
 
 [dependencies.micro-tower-codegen]
+version = "0.1.0"
 path = "codegen/"
 
 [dev-dependencies]

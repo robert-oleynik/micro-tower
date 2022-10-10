@@ -2,6 +2,20 @@
 name = "micro-tower-codegen"
 version = "0.1.0"
 edition = "2021"
+description = "micro-tower proc-macros and attributes for code generation"
+license = "BSD-2-Clause"
+repository = "https://gitlab.com/robert-oleynik/micro-tower"
+readme = "../README.md"
+keywords = [
+	"service",
+	"code",
+	"generation",
+	"framework"
+]
+categories = [
+	"asynchronous",
+	"network-programming"
+]
 
 [lib]
 proc-macro = true
