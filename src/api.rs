@@ -1,3 +1,5 @@
+//! Utilities to translate request and replies.
+
 use serde::{Deserialize, Serialize};
 
 pub mod codec;

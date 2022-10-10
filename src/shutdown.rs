@@ -1,3 +1,5 @@
+//! Utilities to manage unified shutdown on system events (e.g. SIGTERM, SIGQUIT)
+
 use tokio::signal::unix;
 use tokio::signal::unix::SignalKind;
 use tokio::task::JoinHandle;

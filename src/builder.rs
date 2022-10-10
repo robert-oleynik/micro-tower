@@ -1,3 +1,5 @@
+//! Extensions to improve [`tower::ServiceBuilder`].
+
 use tower::layer::util::Stack;
 use tower::ServiceBuilder;
 
@@ -6,7 +8,7 @@ use crate::service::pool;
 
 pub trait ServiceBuilderExt<L> {
     /// Wrap service in [`api::Layer`]. Should be done to prepare service for sessions (e.g.
-    /// [`micro_tower::sessions::tcp::spawn`]).
+    /// [`crate::session::tcp::spawn`]).
     fn api<R, C>(self) -> ServiceBuilder<Stack<api::Layer<R, C>, L>>;
 }
 
