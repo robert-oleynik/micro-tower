@@ -5,3 +5,5 @@
 [![micro-tower](https://img.shields.io/crates/v/micro-tower)](https://crates.io/crates/micro-tower)
 
 Framework for writing a distributed service based on [tower] middleware.
+
+[tower]: https://crates.io/crates/micro-tower
