@@ -339,6 +339,7 @@ impl Service {
 
             impl #crate_path::service::Info for #name {
                 type Request = #request_ty;
+                type Response = #response_ty;
 
                 fn name() -> &'static str {
                     #name_str
