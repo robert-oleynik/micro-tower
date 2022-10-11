@@ -295,6 +295,7 @@ impl Service {
     pub fn gen_service_impl(&self) -> TokenStream {
         let crate_path = &self.crate_path;
         let name = &self.name;
+        let name_str = &self.name_str;
         let docs = &self.doc_attrs;
         let request_ty = self.request_arg.ty.as_ref();
         let request_arg = &self.request_arg;
@@ -333,6 +334,14 @@ impl Service {
                         };
                     )*
                     #block
+                }
+            }
+
+            impl #crate_path::service::Info for #name {
+                type Request = #request_ty;
+
+                fn name() -> &'static str {
+                    #name_str
                 }
             }
         )
