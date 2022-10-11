@@ -2,6 +2,7 @@
 
 pub mod api;
 pub mod builder;
+pub mod runtime;
 pub mod session;
 pub mod shutdown;
 pub mod util;
