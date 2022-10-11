@@ -1,5 +1,5 @@
 use micro_tower::prelude::*;
-use micro_tower::util::{BoxError, BoxService};
+use micro_tower::util::BoxError;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -63,64 +63,6 @@ async fn syn_service() {
 
     let res = service.ready().await.unwrap().call(()).await.unwrap();
     assert_eq!(res, "Hello World");
-}
-
-#[micro_tower::codegen::service]
-async fn extended_service(_: ()) {}
-
-#[micro_tower::codegen::service(extend)]
-async fn extended_service(req: String) -> String {
-    req
-}
-
-#[micro_tower::codegen::service]
-async fn inner_extended(req: String, mut inner: BoxService<String, extended_service>) -> String {
-    inner.ready().await.unwrap().call(req).await.unwrap()
-}
-
-#[test]
-fn build_extended_service() {
-    let _service = extended_service::builder().build();
-}
-
-#[tokio::test]
-async fn call_extended_service() {
-    let service = extended_service::builder().build();
-    let mut service: BoxService<String, extended_service> = Box::new(service);
-
-    let response = service
-        .ready()
-        .await
-        .unwrap()
-        .call(String::from("Hello World"))
-        .await
-        .unwrap();
-    assert_eq!(response, "Hello World");
-}
-
-#[test]
-fn build_ext_inner_service() {
-    let ext_service = extended_service::builder().build();
-    let _inner_service = inner_extended::builder()
-        .inner(Box::new(ext_service))
-        .build();
-}
-
-#[tokio::test]
-async fn call_inner_ext_service() {
-    let ext_service = extended_service::builder().build();
-    let mut inner_service = inner_extended::builder()
-        .inner(Box::new(ext_service))
-        .build();
-
-    let response = inner_service
-        .ready()
-        .await
-        .unwrap()
-        .call(String::from("Hello World"))
-        .await
-        .unwrap();
-    assert_eq!(response, "Hello World");
 }
 
 #[derive(Debug, thiserror::Error)]

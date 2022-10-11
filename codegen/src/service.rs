@@ -338,18 +338,14 @@ impl Service {
         )
     }
 
-    pub fn generate(&mut self, args: &args::Args) -> TokenStream {
-        let service_decl = (!args.extend()).then(|| {
-            let decl = self.gen_service_decl();
-            let builder = self.gen_service_builder();
-            quote::quote!(
-                #decl
-                #builder
-            )
-        });
+    pub fn generate(&mut self) -> TokenStream {
+        let decl = self.gen_service_decl();
+        let builder = self.gen_service_builder();
         let service_impl = self.gen_service_impl();
+
         quote::quote!(
-            #service_decl
+            #decl
+            #builder
 
             #service_impl
         )

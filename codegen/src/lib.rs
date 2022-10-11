@@ -78,5 +78,5 @@ pub fn service(args: TokenStream, items: TokenStream) -> TokenStream {
         Err(err) => return TokenStream::from(err.write_errors()),
     };
     let decl = parse_macro_input!(items as syn::ItemFn);
-    Service::new(&args, decl).generate(&args).into()
+    Service::new(&args, decl).generate().into()
 }
