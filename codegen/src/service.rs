@@ -345,6 +345,16 @@ impl Service {
                     #name_str
                 }
             }
+
+            impl #crate_path::service::Create for #name {
+                type Error = ::std::convert::Infallible;
+
+                fn with_registry(
+                    registry: &#crate_path::runtime::registry::Type
+                ) -> ::std::result::Result<::std::option::Option<#crate_path::service::Service<Self>>, Self::Error> {
+                    todo!()
+                }
+            }
         )
     }
 

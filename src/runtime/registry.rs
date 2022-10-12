@@ -10,16 +10,16 @@ pub struct Error;
 /// Registry to store any type by name/identifier respectively a hash map of any object.
 #[derive(Default)]
 pub struct Type {
-    data: HashMap<String, Box<dyn Any>>,
+    data: HashMap<String, Box<dyn Any + Send + Sync>>,
 }
 
 impl Type {
     /// Insert object into registry. Will return the old value of this `key` (if exist)
-    pub fn insert<T: 'static>(
+    pub fn insert<T: Send + Sync + 'static>(
         &mut self,
         key: impl Into<String>,
         value: Box<T>,
-    ) -> Option<Box<dyn Any>> {
+    ) -> Option<Box<dyn Any + Send + Sync>> {
         self.data.insert(key.into(), value)
     }
 
