@@ -28,10 +28,10 @@ impl Type {
     /// # Errors
     ///
     /// Will return `Err` if value exists but cannot converted into `&T`.
-    pub fn get<Q: ?Sized, T: 'static>(&self, key: &Q) -> Result<Option<&T>, Error>
+    pub fn get<Q, T: 'static>(&self, key: &Q) -> Result<Option<&T>, Error>
     where
         String: Borrow<Q>,
-        Q: Hash + Eq,
+        Q: ?Sized + Hash + Eq,
     {
         self.data
             .get(key)
@@ -46,10 +46,10 @@ impl Type {
     /// # Errors
     ///
     /// Will return `Err` if value exists but cannot converted into `&mut T`
-    pub fn get_mut<Q: ?Sized, T: 'static>(&mut self, key: &Q) -> Result<Option<&mut T>, Error>
+    pub fn get_mut<Q, T: 'static>(&mut self, key: &Q) -> Result<Option<&mut T>, Error>
     where
         String: Borrow<Q>,
-        Q: Hash + Eq,
+        Q: ?Sized + Hash + Eq,
     {
         self.data
             .get_mut(key)
@@ -80,7 +80,7 @@ mod tests {
         let mut registry = Type::default();
 
         registry.insert("key", Box::new(42_i32));
-        assert_eq!(*registry.get::<_, i32>("key").unwrap().unwrap(), 42)
+        assert_eq!(*registry.get::<_, i32>("key").unwrap().unwrap(), 42);
     }
 
     #[test]
@@ -88,7 +88,7 @@ mod tests {
         let mut registry = Type::default();
 
         registry.insert("key", Box::new(42_i32));
-        assert_eq!(*registry.get_mut::<_, i32>("key").unwrap().unwrap(), 42)
+        assert_eq!(*registry.get_mut::<_, i32>("key").unwrap().unwrap(), 42);
     }
 
     #[test]
@@ -96,7 +96,7 @@ mod tests {
         let mut registry = Type::default();
 
         registry.insert("key", Box::new(42_i32));
-        assert!(registry.get_mut::<_, i32>("key2").unwrap().is_none())
+        assert!(registry.get_mut::<_, i32>("key2").unwrap().is_none());
     }
 
     #[test]
@@ -104,6 +104,6 @@ mod tests {
         let mut registry = Type::default();
 
         registry.insert("key", Box::new(42_i32));
-        assert!(registry.get_mut::<_, usize>("key").is_err())
+        assert!(registry.get_mut::<_, usize>("key").is_err());
     }
 }

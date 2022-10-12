@@ -27,6 +27,7 @@ pub trait Info {
 
 /// A wrapper around a boxed service using [`Info`] to describe request and response type. Can be
 /// used to wrap any service which accepts the same request and response type as `S`
+#[allow(clippy::type_complexity)]
 pub struct Box<S: Info> {
     inner: std::boxed::Box<
         dyn tower::Service<
@@ -73,6 +74,6 @@ impl<S: Info> tower::Service<S::Request> for Box<S> {
     }
 
     fn call(&mut self, req: S::Request) -> Self::Future {
-        self.inner.call(req).into()
+        self.inner.call(req)
     }
 }
