@@ -33,8 +33,10 @@ impl Runtime {
                 tracing::error!("Failed to register signal handler. Reason: {report:?}");
             }
         }
+        tracing::info!("waiting for shutdown");
 
-        for session in self.session_handles {
+        for (i, session) in self.session_handles.into_iter().enumerate() {
+            tracing::trace!(message = "waiting for session", i);
             if let Err(err) = session.await {
                 let report = crate::report!(err);
                 tracing::error!("{report:?}");

@@ -38,7 +38,7 @@ impl Builder {
     /// # Panics
     ///
     /// Will panic if internal mutex failed to lock registry.
-    pub fn service<S: Create + 'static>(&mut self) -> &mut Self
+    pub fn service<S: Create + 'static>(mut self) -> Self
     where
         S::Error: std::error::Error + Send + Sync + 'static,
     {
@@ -72,7 +72,7 @@ impl Builder {
     /// # Panics
     ///
     /// Will panic if internal mutex failed to lock registry.
-    pub fn bind_service<S, T>(&mut self, session: T) -> &mut Self
+    pub fn bind_service<S, T>(mut self, session: T) -> Self
     where
         S: Info + Create,
         S::Error: std::error::Error + Send + Sync + 'static,
@@ -112,9 +112,9 @@ impl Builder {
     /// # Panics
     ///
     /// Will panic if failed to create any service.
-    pub async fn build(&mut self) -> Runtime {
+    pub async fn build(self) -> Runtime {
         // TODO: Detect dependency cycles.
-        for (name, service) in self.handles.drain(0..) {
+        for (name, service) in self.handles {
             if let Err(err) = service.await {
                 let report = crate::report!(err);
                 tracing::error!("failed to register service '{name}'. reason: {report:?}");
@@ -122,8 +122,8 @@ impl Builder {
             }
         }
         Runtime {
-            controller: self.controller.clone(),
-            session_handles: self.session_handles.drain(0..).collect(),
+            controller: self.controller,
+            session_handles: self.session_handles,
         }
     }
 }

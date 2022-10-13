@@ -57,7 +57,10 @@ where
 
                 let (stream, addr) = tokio::select! {
                     result = listener.accept() => result?,
-                    _ = controller.wait_for_shutdown() => return Ok(())
+                    _ = controller.wait_for_shutdown() => {
+                        tracing::trace!(message = "Received shutdown signal. Stop accepting new connections.", port = addr.port());
+                        return Ok(())
+                    }
                 };
 
                 let service = match builder.ready().await {
