@@ -4,14 +4,12 @@ use std::{
 };
 
 use tokio::task::JoinHandle;
-use tower::{util::BoxCloneService, BoxError, ServiceBuilder};
+use tower::util::BoxCloneService;
+use tower::{BoxError, ServiceBuilder};
 
-use crate::{
-    service::{Create, Info, NotReady, Service},
-    session::Session,
-    shutdown::Controller,
-    util::BoxFuture,
-};
+use crate::service::{Create, Info, NotReady, Service};
+use crate::session::Session;
+use crate::shutdown::Controller;
 
 use super::{registry, Runtime};
 
@@ -105,11 +103,10 @@ impl Builder {
                         }
                     });
 
-            session.run(service, controller).await;
-            Ok(())
+            session.run(service, controller).await
         });
         self.session_handles.push(handle);
-        todo!()
+        self
     }
 
     /// Build service runtime. Can only build once.

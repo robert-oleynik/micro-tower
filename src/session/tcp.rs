@@ -1,20 +1,21 @@
+use std::marker::PhantomData;
 use std::net::SocketAddr;
 
-use bytes::BytesMut;
 use tokio::net::TcpListener;
-use tokio::task::JoinHandle;
-use tower::{BoxError, Service, ServiceExt};
+use tower::{BoxError, Layer, Service, ServiceExt};
 
-use crate::api;
+use crate::api::codec::{Decode, Encode};
+use crate::api::Message;
 use crate::shutdown::Controller;
 use crate::util::BoxFuture;
 
-pub struct Session {
+pub struct Session<ED, Req> {
     addr: SocketAddr,
     listener: TcpListener,
+    _p: PhantomData<(Req, ED)>,
 }
 
-impl Session {
+impl<ED, Req> Session<ED, Req> {
     /// Create tcp session that binds to address `addr`.
     ///
     /// # Errors
@@ -22,16 +23,28 @@ impl Session {
     /// Will return `Err` if failed to create tcp listener.
     pub async fn with_addr(addr: SocketAddr) -> std::io::Result<Self> {
         let listener = TcpListener::bind(&addr).await?;
-        Ok(Self { addr, listener })
+        Ok(Self {
+            addr,
+            listener,
+            _p: PhantomData,
+        })
     }
 }
 
-impl<SB> super::Session<SB> for Session
+impl<SB, ED, Req> super::Session<SB> for Session<ED, Req>
 where
+    Req: Send + 'static,
     SB: Service<SocketAddr, Error = BoxError> + Send + 'static,
     SB::Future: Send,
-    SB::Response: Service<BytesMut, Response = BytesMut, Error = api::Error> + Send,
-    <SB::Response as Service<BytesMut>>::Future: Send,
+    SB::Response: Service<Req, Error = BoxError> + Send,
+    <SB::Response as Service<Req>>::Future: Send,
+    ED: Encode<Message<<SB::Response as tower::Service<Req>>::Response>>
+        + Decode<Req>
+        + Send
+        + 'static,
+    <ED as Encode<Message<<SB::Response as tower::Service<Req>>::Response>>>::Error:
+        std::error::Error + Send + Sync + 'static,
+    <ED as Decode<Req>>::Error: std::error::Error + Send + Sync + Unpin + 'static,
 {
     fn run(self, mut builder: SB, controller: Controller) -> BoxFuture<Result<(), BoxError>> {
         Box::pin(async move {
@@ -63,6 +76,8 @@ where
                         continue;
                     }
                 };
+                let layer = crate::api::Layer::<Req, ED>::default();
+                let service = layer.layer(service);
 
                 tracing::info!(message = "new connection", addr = format!("{addr}"));
 
