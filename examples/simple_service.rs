@@ -8,14 +8,8 @@ use micro_tower::session::tcp;
 use tracing::Level;
 use tracing_subscriber::FmtSubscriber;
 
-/// Other service
-#[micro_tower::codegen::service]
-pub async fn other(_: ()) -> &'static str {
-    "Hello World"
-}
-
 /// Service documentation
-#[micro_tower::codegen::service]
+#[micro_tower::codegen::service(buffer = 1)]
 pub async fn parse_str(request: String) -> Result<i32, ParseIntError> {
     request.parse()
 }
@@ -33,7 +27,6 @@ async fn main() {
         .unwrap();
 
     let rt = Runtime::builder()
-        .service::<other>()
         .bind_service::<parse_str, _>(session)
         .build()
         .await;

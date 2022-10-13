@@ -10,12 +10,12 @@ pub enum Error {
 }
 
 /// Some documentation
-#[micro_tower::codegen::service]
+#[micro_tower::codegen::service(buffer = 1)]
 async fn hello_world(_: ()) -> &'static str {
     "Hello World"
 }
 
-#[micro_tower::codegen::service]
+#[micro_tower::codegen::service(buffer = 1)]
 async fn inner_service(
     request: (),
     mut inner: Service<hello_world>,
@@ -67,7 +67,7 @@ async fn call_inner_service() {
     assert_eq!(response, "Hello World");
 }
 
-#[micro_tower::codegen::service]
+#[micro_tower::codegen::service(buffer = 1)]
 fn sync_service(_: ()) -> &'static str {
     "Hello World"
 }
@@ -89,7 +89,7 @@ fn error_mockup() -> Result<(), ErrorMockup> {
     Ok(())
 }
 
-#[micro_tower::codegen::service]
+#[micro_tower::codegen::service(buffer = 1)]
 async fn error_service(_: ()) -> Result<(), ErrorMockup> {
     error_mockup()?;
     Ok(())
@@ -101,7 +101,7 @@ async fn call_error_service() {
     service.ready().await.unwrap().call(()).await.unwrap();
 }
 
-#[micro_tower::codegen::service]
+#[micro_tower::codegen::service(buffer = 1)]
 async fn add_service(_: (), lhs: i64, rhs: i64) -> i64 {
     *lhs + *rhs
 }

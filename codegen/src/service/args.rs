@@ -8,6 +8,8 @@ pub struct Args {
     #[darling(rename = "crate")]
     crate_path: Option<syn::LitStr>,
     name: Option<String>,
+    #[darling(rename = "buffer")]
+    buffer_size: usize,
 }
 
 impl Args {
@@ -23,6 +25,11 @@ impl Args {
                 }
             })
             .unwrap_or_else(|| syn::parse_str("::micro_tower").unwrap())
+    }
+
+    /// Returns a literal of `self.buffer_size`.
+    pub fn buffer_size(&self) -> syn::LitInt {
+        syn::LitInt::new(&format!("{}", self.buffer_size), Span::call_site())
     }
 
     /// Will return the service name as string literal. If option `name` is set will return this

@@ -1,7 +1,5 @@
-use std::{
-    net::SocketAddr,
-    sync::{Arc, RwLock},
-};
+use std::net::SocketAddr;
+use std::sync::{Arc, RwLock};
 
 use tokio::task::JoinHandle;
 use tower::util::BoxCloneService;
@@ -38,6 +36,7 @@ impl Builder {
     /// # Panics
     ///
     /// Will panic if internal mutex failed to lock registry.
+    #[must_use]
     pub fn service<S: Create + 'static>(mut self) -> Self
     where
         S::Error: std::error::Error + Send + Sync + 'static,
@@ -72,6 +71,7 @@ impl Builder {
     /// # Panics
     ///
     /// Will panic if internal mutex failed to lock registry.
+    #[must_use]
     pub fn bind_service<S, T>(mut self, session: T) -> Self
     where
         S: Info + Create,

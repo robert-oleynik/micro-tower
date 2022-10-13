@@ -5,7 +5,7 @@ use micro_tower::ServiceBuilder;
 use tower::load::CompleteOnResponse;
 use tower::load::PendingRequests;
 
-#[micro_tower::codegen::service]
+#[micro_tower::codegen::service(buffer = 1)]
 async fn service_moc(request: usize, num: usize) -> usize {
     request + *num
 }

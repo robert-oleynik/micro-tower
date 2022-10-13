@@ -10,6 +10,7 @@ pub struct Service {
     crate_path: syn::Path,
     vis: syn::Visibility,
     asyncness: Option<syn::token::Async>,
+    buffer_size: syn::LitInt,
     // Names
     name: syn::Ident,
     name_str: syn::LitStr,
@@ -170,6 +171,7 @@ impl Service {
 
         Self {
             crate_path: args.crate_path(),
+            buffer_size: args.buffer_size(),
             vis: decl.vis,
             asyncness: decl.sig.asyncness,
             name_builder: syn::Ident::new(&format!("{}Builder", decl.sig.ident), Span::call_site()),
@@ -305,6 +307,7 @@ impl Service {
         let srv_mut = &self.inner_srv_m;
         let srv_ty = &self.inner_srv_t;
         let block = self.gen_service_block();
+        let buffer_size = &self.buffer_size;
         quote::quote!(
             #( #docs )*
             impl #crate_path::Service<#request_ty> for #name {
@@ -365,7 +368,7 @@ impl Service {
                         .build();
                     let service = #crate_path::ServiceBuilder::new()
                         .boxed_future()
-                        .buffer(1)
+                        .buffer(#buffer_size)
                         .service(service);
                     Ok(Some(#crate_path::service::Service::from(Box::new(service))))
                 }
