@@ -1,5 +1,7 @@
 use micro_tower::prelude::*;
+use micro_tower::service::Service;
 use micro_tower::util::BoxError;
+use micro_tower::ServiceBuilder;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -14,8 +16,11 @@ async fn hello_world(_: ()) -> &'static str {
 }
 
 #[micro_tower::codegen::service]
-async fn inner_service(request: (), mut inner: hello_world) -> Result<&'static str, Error> {
-    Ok(inner.call(request).await?)
+async fn inner_service(
+    request: (),
+    mut inner: Service<hello_world>,
+) -> Result<&'static str, Error> {
+    Ok(inner.ready().await?.call(request).await?)
 }
 
 #[test]
@@ -31,9 +36,14 @@ async fn call_hw_service() {
     assert_eq!(response, "Hello World");
 }
 
-#[test]
-fn build_inner_service() {
+#[tokio::test]
+async fn build_inner_service() {
     let hw_service = hello_world::builder().build();
+    let hw_service = ServiceBuilder::new()
+        .boxed_future()
+        .buffer(1)
+        .service(hw_service);
+    let hw_service = Service::from(Box::new(hw_service));
     let _inner_service = inner_service::builder().inner(hw_service).build();
 }
 
@@ -46,6 +56,11 @@ fn build_inner_service_missing() {
 #[tokio::test]
 async fn call_inner_service() {
     let hw_service = hello_world::builder().build();
+    let hw_service = ServiceBuilder::new()
+        .boxed_future()
+        .buffer(1)
+        .service(hw_service);
+    let hw_service = Service::from(Box::new(hw_service));
     let mut inner_service = inner_service::builder().inner(hw_service).build();
 
     let response = inner_service.ready().await.unwrap().call(()).await.unwrap();

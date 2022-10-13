@@ -38,5 +38,5 @@ async fn main() {
         .build()
         .await;
 
-    rt.run().await
+    rt.run().await;
 }

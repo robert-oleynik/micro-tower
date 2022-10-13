@@ -1,5 +1,3 @@
-use std::sync::{Arc, RwLock};
-
 use tokio::task::JoinHandle;
 use tower::BoxError;
 
@@ -11,7 +9,6 @@ pub mod registry;
 /// Used to manage and maintain services.
 pub struct Runtime {
     controller: Controller,
-    registry: Arc<RwLock<registry::Type>>,
     session_handles: Vec<JoinHandle<Result<(), BoxError>>>,
 }
 
@@ -35,7 +32,6 @@ impl Runtime {
                 let report = crate::report!(err);
                 tracing::error!("Failed to register signal handler. Reason: {report:?}");
             }
-            _ => {}
         }
 
         for session in self.session_handles {

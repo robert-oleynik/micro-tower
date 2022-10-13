@@ -10,7 +10,7 @@ pub mod util;
 
 pub mod prelude {
     pub use crate::builder::{ServiceBuilderExt, ServicePoolBuilderExt};
-    pub use tower::{Layer, Service, ServiceExt};
+    pub use tower::{Layer, Service as TowerService, ServiceExt};
     pub use tracing::Instrument;
 }
 

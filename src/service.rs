@@ -72,7 +72,6 @@ where
 
 /// A wrapper around a boxed service using [`Info`] to describe request and response type. Can be
 /// used to wrap any service which accepts the same request and response type as `S`
-#[allow(clippy::type_complexity)]
 pub struct Service<S: Info> {
     inner: BoxServiceClone<S>,
 }
@@ -102,7 +101,7 @@ impl<S: Info> From<BoxServiceClone<S>> for Service<S> {
 
 impl<S> Clone for Service<S>
 where
-    S: Info + Send + Sync + Clone + 'static,
+    S: Info + Send + Sync + 'static,
     S: tower::Service<
         S::Request,
         Response = <S as Info>::Response,

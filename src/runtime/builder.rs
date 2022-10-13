@@ -123,7 +123,6 @@ impl Builder {
         }
         Runtime {
             controller: self.controller.clone(),
-            registry: self.registry.clone(),
             session_handles: self.session_handles.drain(0..).collect(),
         }
     }

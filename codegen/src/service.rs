@@ -355,14 +355,14 @@ impl Service {
                 ) -> ::std::result::Result<::std::option::Option<#crate_path::service::Service<Self>>, Self::Error> {
                     use #crate_path::prelude::ServiceBuilderExt;
                     #(
-                        let #srv_names: #srv_ty = match registry.get(::std::stringify!(#srv_names))? {
+                        let #srv_names: #srv_ty = match registry.get::<_, #srv_ty>(::std::stringify!(#srv_names))? {
                             Some(srv) => srv.clone(),
                             None => return Ok(None)
                         };
                     )*
-                    let service = Self {
-                        #( #srv_names ),*
-                    };
+                    let service = Self::builder()
+                        #( .#srv_names(#srv_names) )*
+                        .build();
                     let service = #crate_path::ServiceBuilder::new()
                         .boxed_future()
                         .buffer(1)
