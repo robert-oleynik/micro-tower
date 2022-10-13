@@ -111,7 +111,7 @@ impl Builder {
     ///
     /// # Panics
     ///
-    /// TODO
+    /// Will panic if failed to create any service.
     pub async fn build(&mut self) -> Runtime {
         // TODO: Detect dependency cycles.
         for (name, service) in self.handles.drain(0..) {
@@ -121,6 +121,10 @@ impl Builder {
                 panic!("failed to register service '{name}'")
             }
         }
-        todo!()
+        Runtime {
+            controller: self.controller.clone(),
+            registry: self.registry.clone(),
+            session_handles: self.session_handles.drain(0..).collect(),
+        }
     }
 }
