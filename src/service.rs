@@ -31,6 +31,10 @@ pub trait Create: Sized + Info {
     type Error;
 
     /// Create service by reading required services from `registry`. Will return `Ok(None)` if not all services
+    ///
+    /// # Errors
+    ///
+    /// Will return `Err` if service is of the wrong type.
     fn with_registry(registry: &registry::Type) -> Result<Option<Service<Self>>, Self::Error>;
 }
 

@@ -6,12 +6,17 @@ pub struct Runtime {}
 
 impl Runtime {
     /// Returns new runtime builder.
+    #[must_use]
     pub fn builder() -> builder::Builder {
         builder::Builder::default()
     }
 
     /// Start runtime and wait for shutdown signal
-    pub async fn run(self) {
+    ///
+    /// # Panics
+    ///
+    /// TODO
+    pub fn run(self) {
         todo!()
     }
 }

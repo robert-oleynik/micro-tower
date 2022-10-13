@@ -24,6 +24,7 @@ use super::{registry, Runtime};
 ///     .build()
 ///     .await;
 /// ```
+#[derive(Default)]
 pub struct Builder {
     registry: Arc<RwLock<registry::Type>>,
     handles: Vec<(&'static str, JoinHandle<Result<(), BoxError>>)>,
@@ -31,19 +32,12 @@ pub struct Builder {
     controller: Controller,
 }
 
-impl Default for Builder {
-    fn default() -> Self {
-        Self {
-            registry: Default::default(),
-            handles: Vec::new(),
-            session_handles: Vec::new(),
-            controller: Controller::default(),
-        }
-    }
-}
-
 impl Builder {
     /// Register new service builder to runtime service registry.
+    ///
+    /// # Panics
+    ///
+    /// Will panic if internal mutex failed to lock registry.
     pub fn service<S: Create + 'static>(&mut self) -> &mut Self
     where
         S::Error: std::error::Error + Send + Sync + 'static,
@@ -53,7 +47,7 @@ impl Builder {
             loop {
                 let service = {
                     let guard = registry.read().unwrap();
-                    S::with_registry(&*guard)
+                    S::with_registry(&guard)
                 };
                 let service = match service {
                     Ok(Some(service)) => service,
@@ -74,6 +68,10 @@ impl Builder {
     }
 
     /// Register new service builder to port `port`.
+    ///
+    /// # Panics
+    ///
+    /// Will panic if internal mutex failed to lock registry.
     pub fn bind_service<S, T>(&mut self, session: T) -> &mut Self
     where
         S: Info + Create,
@@ -92,7 +90,7 @@ impl Builder {
                             tracing::info!(message = "new connection", addr = format!("{addr}"));
                             let service = {
                                 let guard = registry.read().unwrap();
-                                S::with_registry(&*guard)
+                                S::with_registry(&guard)
                             };
                             let service = match service {
                                 Ok(Some(service)) => service,
@@ -110,6 +108,10 @@ impl Builder {
     }
 
     /// Build service runtime. Can only build once.
+    ///
+    /// # Panics
+    ///
+    /// TODO
     pub async fn build(&mut self) -> Runtime {
         // TODO: Detect dependency cycles.
         for (name, service) in self.handles.drain(0..) {
