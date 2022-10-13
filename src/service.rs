@@ -2,7 +2,7 @@
 
 pub mod pool;
 
-use std::task::Poll;
+use std::task::{Context, Poll};
 
 pub use tower::*;
 
@@ -34,24 +34,71 @@ pub trait Create: Sized + Info {
     fn with_registry(registry: &registry::Type) -> Result<Option<Service<Self>>, Self::Error>;
 }
 
+#[doc(hidden)]
+trait Clonable<Req> {
+    type Response;
+
+    fn clone(&self) -> Box<dyn Clonable<Req, Response = Self::Response> + Send + Sync>;
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), BoxError>>;
+    fn call(&mut self, req: Req) -> BoxFuture<Result<Self::Response, BoxError>>;
+}
+
+type BoxServiceClone<S> =
+    Box<dyn Clonable<<S as Info>::Request, Response = <S as Info>::Response> + Send + Sync>;
+
+impl<S, Req> Clonable<Req> for S
+where
+    S: tower::Service<Req, Error = BoxError> + Clone + Send + Sync + 'static,
+    S::Future: Into<BoxFuture<Result<S::Response, BoxError>>>,
+{
+    type Response = S::Response;
+
+    fn clone(&self) -> Box<dyn Clonable<Req, Response = Self::Response> + Send + Sync> {
+        Box::new(<S as Clone>::clone(self))
+    }
+
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), BoxError>> {
+        <Self as tower::Service<Req>>::poll_ready(self, cx)
+    }
+
+    fn call(&mut self, req: Req) -> BoxFuture<Result<Self::Response, BoxError>> {
+        <Self as tower::Service<Req>>::call(self, req).into()
+    }
+}
+
 /// A wrapper around a boxed service using [`Info`] to describe request and response type. Can be
 /// used to wrap any service which accepts the same request and response type as `S`
 #[allow(clippy::type_complexity)]
 pub struct Service<S: Info> {
-    inner: Box<
-        dyn tower::Service<
-                S::Request,
-                Response = S::Response,
-                Error = BoxError,
-                Future = BoxFuture<Result<S::Response, BoxError>>,
-            > + Send
-            + Sync,
-    >,
+    inner: BoxServiceClone<S>,
 }
 
-impl<S> From<Box<S>> for Service<S>
+impl<S: Info, T> From<Box<T>> for Service<S>
 where
-    S: Info + Send + Sync + 'static,
+    T: tower::Service<
+            S::Request,
+            Response = S::Response,
+            Error = BoxError,
+            Future = BoxFuture<Result<S::Response, BoxError>>,
+        > + Clone
+        + Sync
+        + Send
+        + 'static,
+{
+    fn from(inner: Box<T>) -> Self {
+        Self { inner }
+    }
+}
+
+impl<S: Info> From<BoxServiceClone<S>> for Service<S> {
+    fn from(inner: BoxServiceClone<S>) -> Self {
+        Self { inner }
+    }
+}
+
+impl<S> Clone for Service<S>
+where
+    S: Info + Send + Sync + Clone + 'static,
     S: tower::Service<
         S::Request,
         Response = <S as Info>::Response,
@@ -59,8 +106,10 @@ where
         Future = BoxFuture<Result<<S as Info>::Response, BoxError>>,
     >,
 {
-    fn from(inner: Box<S>) -> Self {
-        Self { inner }
+    fn clone(&self) -> Self {
+        Self {
+            inner: self.inner.clone(),
+        }
     }
 }
 

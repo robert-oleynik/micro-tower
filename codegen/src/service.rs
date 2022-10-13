@@ -303,6 +303,7 @@ impl Service {
         let srv_names_b = &self.inner_srv_b;
         let srv_names = &self.inner_srv;
         let srv_mut = &self.inner_srv_m;
+        let srv_ty = &self.inner_srv_t;
         let block = self.gen_service_block();
         quote::quote!(
             #( #docs )*
@@ -347,12 +348,26 @@ impl Service {
             }
 
             impl #crate_path::service::Create for #name {
-                type Error = ::std::convert::Infallible;
+                type Error = #crate_path::runtime::registry::Error;
 
                 fn with_registry(
                     registry: &#crate_path::runtime::registry::Type
                 ) -> ::std::result::Result<::std::option::Option<#crate_path::service::Service<Self>>, Self::Error> {
-                    todo!()
+                    use #crate_path::prelude::ServiceBuilderExt;
+                    #(
+                        let #srv_names: #srv_ty = match registry.get(::std::stringify!(#srv_names))? {
+                            Some(srv) => srv.clone(),
+                            None => return Ok(None)
+                        };
+                    )*
+                    let service = Self {
+                        #( #srv_names ),*
+                    };
+                    let service = #crate_path::ServiceBuilder::new()
+                        .boxed_future()
+                        .buffer(1)
+                        .service(service);
+                    Ok(Some(#crate_path::service::Service::from(Box::new(service))))
                 }
             }
         )

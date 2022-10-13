@@ -53,14 +53,14 @@ impl Builder {
                 let name = S::name();
                 {
                     let mut guard = registry.write().unwrap();
-                    guard.insert(name, Box::new(service));
+                    guard.insert(S::name(), Box::new(service));
                 }
                 tracing::info!(message = "service registered", name);
                 return Ok(());
             }
         });
         self.handles.push((S::name(), handle));
-        todo!()
+        self
     }
 
     /// Register new service builder to port `port`.

@@ -13,7 +13,7 @@ pub trait ServiceBuilderExt<L> {
     fn api<R, C>(self) -> ServiceBuilder<Stack<api::Layer<R, C>, L>>;
 
     /// Wrap service in [`layer::future::BoxLayer`].
-    fn box_future(self) -> ServiceBuilder<Stack<layer::future::BoxLayer, L>>;
+    fn boxed_future(self) -> ServiceBuilder<Stack<layer::future::BoxLayer, L>>;
 }
 
 pub trait ServicePoolBuilderExt<L> {
@@ -30,7 +30,7 @@ impl<L> ServiceBuilderExt<L> for ServiceBuilder<L> {
         self.layer(api::Layer::default())
     }
 
-    fn box_future(self) -> ServiceBuilder<Stack<layer::future::BoxLayer, L>> {
+    fn boxed_future(self) -> ServiceBuilder<Stack<layer::future::BoxLayer, L>> {
         self.layer(layer::future::BoxLayer::default())
     }
 }

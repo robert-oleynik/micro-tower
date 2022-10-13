@@ -6,6 +6,7 @@ use crate::util::BoxFuture;
 #[derive(Default)]
 pub struct BoxLayer;
 
+#[derive(Debug, Clone)]
 pub struct Service<S> {
     inner: S,
 }
