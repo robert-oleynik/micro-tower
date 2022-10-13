@@ -18,6 +18,7 @@ pub mod export {
     pub use derive_builder;
     pub use tokio;
     pub use tracing;
+    pub use tracing_subscriber;
 }
 
 pub mod service;

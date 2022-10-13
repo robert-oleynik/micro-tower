@@ -1,9 +1,8 @@
 #![feature(proc_macro_diagnostic)]
-
 use darling::FromMeta;
 use proc_macro::TokenStream;
 use service::Service;
-use syn::{parse_macro_input, AttributeArgs};
+use syn::{parse_macro_input, spanned::Spanned, AttributeArgs};
 
 mod service;
 mod util;
@@ -17,8 +16,7 @@ mod util;
 /// functions.
 ///
 /// ```rust
-/// #[micro_tower::codegen::service]
-/// async fn service_name(request: ()) -> &'static str {
+/// #[micro_tower::codegen::service] /// async fn service_name(request: ()) -> &'static str {
 ///     "Hello, World!"
 /// }
 /// ```
@@ -79,4 +77,54 @@ pub fn service(args: TokenStream, items: TokenStream) -> TokenStream {
     };
     let decl = parse_macro_input!(items as syn::ItemFn);
     Service::new(&args, decl).generate().into()
+}
+
+#[proc_macro_attribute]
+pub fn main(args: TokenStream, items: TokenStream) -> TokenStream {
+    let decl = parse_macro_input!(items as syn::ItemFn);
+    let args = parse_macro_input!(args as syn::AttributeArgs);
+
+    let attrs = decl.attrs;
+    let vis = decl.vis;
+    if let Some(tk) = decl.sig.constness {
+        util::diagnostic::emit_error(tk.span(), "`const` is not allowed in this context");
+    }
+    let asyncness = decl.sig.asyncness;
+    if let Some(tk) = decl.sig.unsafety {
+        util::diagnostic::emit_error(tk.span(), "`unsafe` is not allowed in this context");
+    }
+    if let Some(tk) = decl.sig.abi {
+        util::diagnostic::emit_error(tk.span(), "Cannot specify ABI here");
+    }
+    let fn_token = decl.sig.fn_token;
+    let ident = decl.sig.ident;
+    if let Some(tk) = decl.sig.generics.gt_token {
+        util::diagnostic::emit_error(tk.span(), "Generics is not allowed in this context");
+    }
+    let inputs = decl.sig.inputs;
+    if !inputs.is_empty() {
+        let n = inputs.len();
+        util::diagnostic::emit_error(
+            ident.span(),
+            format!("function is expected to take 0 arguments, but it takes {n} arguments"),
+        );
+    }
+    // let output = decl.sig.output;
+    let block = decl.block;
+
+    quote::quote!(
+        #( #attrs )*
+        #vis #asyncness #fn_token #ident () -> ::micro_tower::runtime::Runtime #block
+
+        #[::micro_tower::export::tokio::main( #( #args ),* )]
+        async fn main() {
+            let subscriber = ::micro_tower::export::tracing_subscriber::FmtSubscriber::builder()
+                .with_max_level(::micro_tower::export::tracing::Level::TRACE)
+                .finish();
+            ::micro_tower::export::tracing::subscriber::set_global_default(subscriber).unwrap();
+            let rt = #ident().await;
+            rt.run().await;
+        }
+    )
+    .into()
 }
