@@ -1,9 +1,17 @@
-use std::sync::{Arc, RwLock};
+use std::{
+    net::SocketAddr,
+    sync::{Arc, RwLock},
+};
 
 use tokio::task::JoinHandle;
-use tower::BoxError;
+use tower::{util::BoxCloneService, BoxError, ServiceBuilder};
 
-use crate::service::Create;
+use crate::{
+    service::{Create, Info, NotReady, Service},
+    session::Session,
+    shutdown::Controller,
+    util::BoxFuture,
+};
 
 use super::{registry, Runtime};
 
@@ -21,6 +29,8 @@ use super::{registry, Runtime};
 pub struct Builder {
     registry: Arc<RwLock<registry::Type>>,
     handles: Vec<(&'static str, JoinHandle<Result<(), BoxError>>)>,
+    session_handles: Vec<JoinHandle<Result<(), BoxError>>>,
+    controller: Controller,
 }
 
 impl Default for Builder {
@@ -28,6 +38,8 @@ impl Default for Builder {
         Self {
             registry: Default::default(),
             handles: Vec::new(),
+            session_handles: Vec::new(),
+            controller: Controller::default(),
         }
     }
 }
@@ -64,7 +76,39 @@ impl Builder {
     }
 
     /// Register new service builder to port `port`.
-    pub fn bind_service<S>(&mut self, port: u16) -> &mut Self {
+    pub fn bind_service<S, T>(&mut self, session: T) -> &mut Self
+    where
+        S: Info + Create,
+        S::Error: std::error::Error + Send + Sync + 'static,
+        T: Session<BoxCloneService<SocketAddr, Service<S>, BoxError>> + Send + 'static,
+    {
+        let controller = self.controller.clone();
+        let registry = Arc::clone(&self.registry);
+        let handle = tokio::spawn(async move {
+            let service =
+                ServiceBuilder::new()
+                    .boxed_clone()
+                    .service_fn(move |addr: SocketAddr| {
+                        let registry = registry.clone();
+                        async move {
+                            tracing::info!(message = "new connection", addr = format!("{addr}"));
+                            let service = {
+                                let guard = registry.read().unwrap();
+                                S::with_registry(&*guard)
+                            };
+                            let service = match service {
+                                Ok(Some(service)) => service,
+                                Ok(None) => return Err(Box::new(NotReady(S::name())).into()),
+                                Err(err) => return Err(Box::new(err).into()),
+                            };
+                            Ok::<_, BoxError>(service)
+                        }
+                    });
+
+            session.run(service, controller).await;
+            Ok(())
+        });
+        self.session_handles.push(handle);
         todo!()
     }
 

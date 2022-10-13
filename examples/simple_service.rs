@@ -2,11 +2,7 @@
 
 use std::num::ParseIntError;
 
-use micro_tower::api::codec;
-use micro_tower::prelude::*;
-use micro_tower::runtime::Runtime;
-use micro_tower::shutdown::Controller;
-use micro_tower::ServiceBuilder;
+use micro_tower::{runtime::Runtime, session::tcp};
 use tracing::Level;
 use tracing_subscriber::FmtSubscriber;
 
@@ -29,9 +25,12 @@ async fn main() {
         .finish();
     tracing::subscriber::set_global_default(subscriber).unwrap();
 
+    let addr = "127.0.0.1:4000".parse().unwrap();
+    let session = tcp::Session::with_addr(addr).await.unwrap();
+
     let rt = Runtime::builder()
         .service::<other>()
-        .bind_service::<parse_str>(8000)
+        .bind_service::<parse_str, _>(session)
         .build()
         .await;
 
