@@ -7,65 +7,65 @@ use tokio_util::sync::{CancellationToken, WaitForCancellationFuture};
 
 #[derive(Default)]
 pub struct Controller {
-    token: CancellationToken,
+	token: CancellationToken,
 }
 
 impl Clone for Controller {
-    fn clone(&self) -> Self {
-        Self {
-            token: self.token.child_token(),
-        }
-    }
+	fn clone(&self) -> Self {
+		Self {
+			token: self.token.child_token(),
+		}
+	}
 }
 
 impl Controller {
-    /// Create a new controller. Same as [`Controller::default`].
-    #[must_use]
-    pub fn new() -> Self {
-        Self::default()
-    }
+	/// Create a new controller. Same as [`Controller::default`].
+	#[must_use]
+	pub fn new() -> Self {
+		Self::default()
+	}
 
-    /// Emit shutdown signal.
-    pub fn shutdown(&self) {
-        self.token.cancel();
-    }
+	/// Emit shutdown signal.
+	pub fn shutdown(&self) {
+		self.token.cancel();
+	}
 
-    /// Returns future to await shutdown signal.
-    pub fn wait_for_shutdown(&self) -> WaitForCancellationFuture<'_> {
-        self.token.cancelled()
-    }
+	/// Returns future to await shutdown signal.
+	pub fn wait_for_shutdown(&self) -> WaitForCancellationFuture<'_> {
+		self.token.cancelled()
+	}
 
-    /// Spawns a new handler which waits for shutdown signals.
-    ///
-    /// # Errors
-    ///
-    /// Will return `Err` if process wasn't able to acquire quit and terminate signal handler.
-    pub fn spawn_handler(self) -> std::io::Result<JoinHandle<()>> {
-        let mut qt = unix::signal(SignalKind::quit())?;
-        let mut tm = unix::signal(SignalKind::terminate())?;
+	/// Spawns a new handler which waits for shutdown signals.
+	///
+	/// # Errors
+	///
+	/// Will return `Err` if process wasn't able to acquire quit and terminate signal handler.
+	pub fn spawn_handler(self) -> std::io::Result<JoinHandle<()>> {
+		let mut qt = unix::signal(SignalKind::quit())?;
+		let mut tm = unix::signal(SignalKind::terminate())?;
 
-        let handle = tokio::spawn(async move {
-            tokio::select! {
-                _ = qt.recv() => {
-                    tracing::debug!("received SIGQUIT signal");
-                },
-                _ = tm.recv() => {
-                    tracing::debug!("received SIGTERM signal");
-                }
-                res = tokio::signal::ctrl_c() => {
-                    match res {
-                        Ok(_) => tracing::debug!("received ctrl-c shutdown request"),
-                        Err(err) => {
-                            let report = crate::report!(err);
-                            tracing::error!("{report:?}");
-                        }
-                    }
-                }
-            }
-            tracing::trace!("sending shutdown signal");
-            self.shutdown();
-            tracing::trace!("shutdown complete");
-        });
-        Ok(handle)
-    }
+		let handle = tokio::spawn(async move {
+			tokio::select! {
+				_ = qt.recv() => {
+					tracing::debug!("received SIGQUIT signal");
+				},
+				_ = tm.recv() => {
+					tracing::debug!("received SIGTERM signal");
+				}
+				res = tokio::signal::ctrl_c() => {
+					match res {
+						Ok(_) => tracing::debug!("received ctrl-c shutdown request"),
+						Err(err) => {
+							let report = crate::report!(err);
+							tracing::error!("{report:?}");
+						}
+					}
+				}
+			}
+			tracing::trace!("sending shutdown signal");
+			self.shutdown();
+			tracing::trace!("shutdown complete");
+		});
+		Ok(handle)
+	}
 }
