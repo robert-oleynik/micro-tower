@@ -1,5 +1,7 @@
 use micro_tower::prelude::*;
-use micro_tower::util::{BoxError, BoxService};
+use micro_tower::service::Service;
+use micro_tower::util::BoxError;
+use micro_tower::ServiceBuilder;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -8,14 +10,17 @@ pub enum Error {
 }
 
 /// Some documentation
-#[micro_tower::codegen::service]
+#[micro_tower::codegen::service(buffer = 1)]
 async fn hello_world(_: ()) -> &'static str {
     "Hello World"
 }
 
-#[micro_tower::codegen::service]
-async fn inner_service(request: (), mut inner: hello_world) -> Result<&'static str, Error> {
-    Ok(inner.call(request).await?)
+#[micro_tower::codegen::service(buffer = 1)]
+async fn inner_service(
+    request: (),
+    mut inner: Service<hello_world>,
+) -> Result<&'static str, Error> {
+    Ok(inner.ready().await?.call(request).await?)
 }
 
 #[test]
@@ -31,9 +36,14 @@ async fn call_hw_service() {
     assert_eq!(response, "Hello World");
 }
 
-#[test]
-fn build_inner_service() {
+#[tokio::test]
+async fn build_inner_service() {
     let hw_service = hello_world::builder().build();
+    let hw_service = ServiceBuilder::new()
+        .boxed_future()
+        .buffer(1)
+        .service(hw_service);
+    let hw_service = Service::from(Box::new(hw_service));
     let _inner_service = inner_service::builder().inner(hw_service).build();
 }
 
@@ -46,13 +56,18 @@ fn build_inner_service_missing() {
 #[tokio::test]
 async fn call_inner_service() {
     let hw_service = hello_world::builder().build();
+    let hw_service = ServiceBuilder::new()
+        .boxed_future()
+        .buffer(1)
+        .service(hw_service);
+    let hw_service = Service::from(Box::new(hw_service));
     let mut inner_service = inner_service::builder().inner(hw_service).build();
 
     let response = inner_service.ready().await.unwrap().call(()).await.unwrap();
     assert_eq!(response, "Hello World");
 }
 
-#[micro_tower::codegen::service]
+#[micro_tower::codegen::service(buffer = 1)]
 fn sync_service(_: ()) -> &'static str {
     "Hello World"
 }
@@ -65,64 +80,6 @@ async fn syn_service() {
     assert_eq!(res, "Hello World");
 }
 
-#[micro_tower::codegen::service]
-async fn extended_service(_: ()) {}
-
-#[micro_tower::codegen::service(extend)]
-async fn extended_service(req: String) -> String {
-    req
-}
-
-#[micro_tower::codegen::service]
-async fn inner_extended(req: String, mut inner: BoxService<String, extended_service>) -> String {
-    inner.ready().await.unwrap().call(req).await.unwrap()
-}
-
-#[test]
-fn build_extended_service() {
-    let _service = extended_service::builder().build();
-}
-
-#[tokio::test]
-async fn call_extended_service() {
-    let service = extended_service::builder().build();
-    let mut service: BoxService<String, extended_service> = Box::new(service);
-
-    let response = service
-        .ready()
-        .await
-        .unwrap()
-        .call(String::from("Hello World"))
-        .await
-        .unwrap();
-    assert_eq!(response, "Hello World");
-}
-
-#[test]
-fn build_ext_inner_service() {
-    let ext_service = extended_service::builder().build();
-    let _inner_service = inner_extended::builder()
-        .inner(Box::new(ext_service))
-        .build();
-}
-
-#[tokio::test]
-async fn call_inner_ext_service() {
-    let ext_service = extended_service::builder().build();
-    let mut inner_service = inner_extended::builder()
-        .inner(Box::new(ext_service))
-        .build();
-
-    let response = inner_service
-        .ready()
-        .await
-        .unwrap()
-        .call(String::from("Hello World"))
-        .await
-        .unwrap();
-    assert_eq!(response, "Hello World");
-}
-
 #[derive(Debug, thiserror::Error)]
 #[error("placeholder")]
 struct ErrorMockup;
@@ -132,7 +89,7 @@ fn error_mockup() -> Result<(), ErrorMockup> {
     Ok(())
 }
 
-#[micro_tower::codegen::service]
+#[micro_tower::codegen::service(buffer = 1)]
 async fn error_service(_: ()) -> Result<(), ErrorMockup> {
     error_mockup()?;
     Ok(())
@@ -144,7 +101,7 @@ async fn call_error_service() {
     service.ready().await.unwrap().call(()).await.unwrap();
 }
 
-#[micro_tower::codegen::service]
+#[micro_tower::codegen::service(buffer = 1)]
 async fn add_service(_: (), lhs: i64, rhs: i64) -> i64 {
     *lhs + *rhs
 }

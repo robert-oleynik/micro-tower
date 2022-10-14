@@ -70,7 +70,7 @@ impl AsyncWrite for Stream {
     }
 }
 
-#[micro_tower::codegen::service]
+#[micro_tower::codegen::service(buffer = 1)]
 async fn parse(input: String) -> Result<i32, ParseIntError> {
     input.parse()
 }

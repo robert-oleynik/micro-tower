@@ -8,8 +8,10 @@ pub struct Args {
     #[darling(rename = "crate")]
     crate_path: Option<syn::LitStr>,
     name: Option<String>,
-    #[darling(default)]
-    extend: bool,
+    #[darling(rename = "buffer")]
+    buffer_size: syn::LitInt,
+    #[darling(rename = "pool")]
+    pool_size: Option<syn::LitInt>,
 }
 
 impl Args {
@@ -27,6 +29,16 @@ impl Args {
             .unwrap_or_else(|| syn::parse_str("::micro_tower").unwrap())
     }
 
+    /// Returns a literal of `self.buffer_size`.
+    pub fn buffer_size(&self) -> syn::LitInt {
+        self.buffer_size.clone()
+    }
+
+    /// Returns a literal of `self.pool_size`
+    pub fn pool_size(&self) -> Option<syn::LitInt> {
+        self.pool_size.clone()
+    }
+
     /// Will return the service name as string literal. If option `name` is set will return this
     /// instead.
     pub fn name_str(&self, name: &syn::Ident) -> syn::LitStr {
@@ -34,10 +46,5 @@ impl Args {
             || syn::LitStr::new(&name.to_string(), Span::call_site()),
             |name| syn::LitStr::new(name, Span::call_site()),
         )
-    }
-
-    /// Will return `true` if an existing service should be extended instead of fully generated.
-    pub fn extend(&self) -> bool {
-        self.extend
     }
 }

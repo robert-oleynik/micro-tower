@@ -10,6 +10,8 @@ pub struct Service {
     crate_path: syn::Path,
     vis: syn::Visibility,
     asyncness: Option<syn::token::Async>,
+    buffer_size: syn::LitInt,
+    pool_size: Option<syn::LitInt>,
     // Names
     name: syn::Ident,
     name_str: syn::LitStr,
@@ -170,6 +172,8 @@ impl Service {
 
         Self {
             crate_path: args.crate_path(),
+            buffer_size: args.buffer_size(),
+            pool_size: args.pool_size(),
             vis: decl.vis,
             asyncness: decl.sig.asyncness,
             name_builder: syn::Ident::new(&format!("{}Builder", decl.sig.ident), Span::call_site()),
@@ -292,9 +296,83 @@ impl Service {
         }
     }
 
+    pub fn gen_create_impl(&self) -> TokenStream {
+        let crate_path = &self.crate_path;
+        let name = &self.name;
+        let srv_names = &self.inner_srv;
+        let srv_ty = &self.inner_srv_t;
+        let buffer_size = &self.buffer_size;
+
+        if let Some(pool_size) = self.pool_size.as_ref() {
+            quote::quote!(
+                impl #crate_path::service::Create for #name {
+                    type Error = ::std::convert::Infallible;
+
+                    fn with_registry(
+                        registry: ::std::sync::Arc<::std::sync::RwLock<#crate_path::runtime::registry::Type>>
+                    ) -> ::std::result::Result<::std::option::Option<#crate_path::service::Service<Self>>, Self::Error> {
+                        use #crate_path::prelude::{ServiceBuilderExt, ServicePoolBuilderExt};
+                        let service = #crate_path::ServiceBuilder::new()
+                            .boxed_future()
+                            .buffer(#buffer_size)
+                            .pooled::<_, Self::Request>(#pool_size, registry)
+                            .service_fn(|registry| async move {
+                                #(
+                                    let #srv_names: #srv_ty = match registry.get::<_, #srv_ty>(::std::stringify!(#srv_names))? {
+                                        Some(srv) => srv.clone(),
+                                        None => Err(#crate_path::service::NotReady(::std::stringify!(#srv_names)))?
+                                    };
+                                )*
+                                let service = Self::builder()
+                                    #( .#srv_names(#srv_names) )*
+                                    .build();
+                                let service = #crate_path::ServiceBuilder::new()
+                                    .buffer(#buffer_size)
+                                    .service(service);
+                                let service = #crate_path::service::load::PendingRequests::new(
+                                    service,
+                                    #crate_path::service::load::CompleteOnResponse::default()
+                                );
+                                Ok::<_, #crate_path::util::BoxError>(service)
+                            });
+                        Ok(Some(#crate_path::service::Service::from(Box::new(service))))
+                    }
+                }
+            )
+        } else {
+            quote::quote!(
+                impl #crate_path::service::Create for #name {
+                    type Error = #crate_path::runtime::registry::Error;
+
+                    fn with_registry(
+                        registry: ::std::sync::Arc<::std::sync::RwLock<#crate_path::runtime::registry::Type>>
+                    ) -> ::std::result::Result<::std::option::Option<#crate_path::service::Service<Self>>, Self::Error> {
+                        use #crate_path::prelude::ServiceBuilderExt;
+                        let registry = registry.read().unwrap();
+                        #(
+                            let #srv_names: #srv_ty = match registry.get::<_, #srv_ty>(::std::stringify!(#srv_names))? {
+                                Some(srv) => srv.clone(),
+                                None => return Ok(None)
+                            };
+                        )*
+                        let service = Self::builder()
+                            #( .#srv_names(#srv_names) )*
+                            .build();
+                        let service = #crate_path::ServiceBuilder::new()
+                            .boxed_future()
+                            .buffer(#buffer_size)
+                            .service(service);
+                        Ok(Some(#crate_path::service::Service::from(Box::new(service))))
+                    }
+                }
+            )
+        }
+    }
+
     pub fn gen_service_impl(&self) -> TokenStream {
         let crate_path = &self.crate_path;
         let name = &self.name;
+        let name_str = &self.name_str;
         let docs = &self.doc_attrs;
         let request_ty = self.request_arg.ty.as_ref();
         let request_arg = &self.request_arg;
@@ -335,21 +413,28 @@ impl Service {
                     #block
                 }
             }
+
+            impl #crate_path::service::Info for #name {
+                type Request = #request_ty;
+                type Response = #response_ty;
+
+                fn name() -> &'static str {
+                    #name_str
+                }
+            }
         )
     }
 
-    pub fn generate(&mut self, args: &args::Args) -> TokenStream {
-        let service_decl = (!args.extend()).then(|| {
-            let decl = self.gen_service_decl();
-            let builder = self.gen_service_builder();
-            quote::quote!(
-                #decl
-                #builder
-            )
-        });
+    pub fn generate(&mut self) -> TokenStream {
+        let decl = self.gen_service_decl();
+        let builder = self.gen_service_builder();
+        let create_impl = self.gen_create_impl();
         let service_impl = self.gen_service_impl();
+
         quote::quote!(
-            #service_decl
+            #decl
+            #builder
+            #create_impl
 
             #service_impl
         )
