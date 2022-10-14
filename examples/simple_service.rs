@@ -7,7 +7,7 @@ use micro_tower::runtime::Runtime;
 use micro_tower::session::tcp;
 
 /// Service documentation
-#[micro_tower::codegen::service(buffer = 1)]
+#[micro_tower::codegen::service(buffer = 24, pool = 4)]
 pub async fn parse_str(request: String) -> Result<i32, ParseIntError> {
     request.parse()
 }

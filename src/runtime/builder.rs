@@ -44,10 +44,7 @@ impl Builder {
         let registry = Arc::clone(&self.registry);
         let handle = tokio::spawn(async move {
             loop {
-                let service = {
-                    let guard = registry.read().unwrap();
-                    S::with_registry(&guard)
-                };
+                let service = S::with_registry(registry.clone());
                 let service = match service {
                     Ok(Some(service)) => service,
                     Ok(None) => continue,
@@ -88,10 +85,7 @@ impl Builder {
                         let registry = registry.clone();
                         async move {
                             tracing::info!(message = "new connection", addr = format!("{addr}"));
-                            let service = {
-                                let guard = registry.read().unwrap();
-                                S::with_registry(&guard)
-                            };
+                            let service = S::with_registry(registry.clone());
                             let service = match service {
                                 Ok(Some(service)) => service,
                                 Ok(None) => return Err(Box::new(NotReady(S::name())).into()),

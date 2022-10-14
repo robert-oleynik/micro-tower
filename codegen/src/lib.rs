@@ -79,6 +79,7 @@ pub fn service(args: TokenStream, items: TokenStream) -> TokenStream {
     Service::new(&args, decl).generate().into()
 }
 
+/// TODO
 #[proc_macro_attribute]
 pub fn main(args: TokenStream, items: TokenStream) -> TokenStream {
     let decl = parse_macro_input!(items as syn::ItemFn);

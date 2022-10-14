@@ -2,6 +2,7 @@
 
 pub mod pool;
 
+use std::sync::{Arc, RwLock};
 use std::task::{Context, Poll};
 
 pub use tower::*;
@@ -35,7 +36,9 @@ pub trait Create: Sized + Info {
     /// # Errors
     ///
     /// Will return `Err` if service is of the wrong type.
-    fn with_registry(registry: &registry::Type) -> Result<Option<Service<Self>>, Self::Error>;
+    fn with_registry(
+        registry: Arc<RwLock<registry::Type>>,
+    ) -> Result<Option<Service<Self>>, Self::Error>;
 }
 
 #[doc(hidden)]

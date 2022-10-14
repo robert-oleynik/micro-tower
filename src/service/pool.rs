@@ -89,7 +89,7 @@ impl<MS, Target, Req> tower::Service<Req> for Pool<MS, Target, Req>
 where
     MS: Service<Target>,
     MS::Response: tower::Service<Req, Error = BoxError> + tower::load::Load,
-    MS::Error: std::error::Error + Send + Sync + 'static,
+    MS::Error: Into<BoxError>,
     <MS::Response as tower::Service<Req>>::Future: Send + 'static,
     <MS::Response as tower::load::Load>::Metric: std::fmt::Debug,
 {

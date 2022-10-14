@@ -9,7 +9,9 @@ pub struct Args {
     crate_path: Option<syn::LitStr>,
     name: Option<String>,
     #[darling(rename = "buffer")]
-    buffer_size: usize,
+    buffer_size: syn::LitInt,
+    #[darling(rename = "pool")]
+    pool_size: Option<syn::LitInt>,
 }
 
 impl Args {
@@ -29,7 +31,12 @@ impl Args {
 
     /// Returns a literal of `self.buffer_size`.
     pub fn buffer_size(&self) -> syn::LitInt {
-        syn::LitInt::new(&format!("{}", self.buffer_size), Span::call_site())
+        self.buffer_size.clone()
+    }
+
+    /// Returns a literal of `self.pool_size`
+    pub fn pool_size(&self) -> Option<syn::LitInt> {
+        self.pool_size.clone()
     }
 
     /// Will return the service name as string literal. If option `name` is set will return this
