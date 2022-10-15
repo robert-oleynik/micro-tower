@@ -107,9 +107,10 @@ impl Builder {
 	pub fn manage<T: Send + Sync + 'static>(self, ident: impl Into<String>, object: T) -> Self {
 		{
 			let mut guard = self.registry.write().unwrap();
-			if guard.insert(ident, Box::new(object)).is_some() {
-				panic!("Object already used")
-			}
+			assert!(
+				guard.insert(ident, Box::new(object)).is_some(),
+				"Object already registerd"
+			);
 		}
 		self
 	}
