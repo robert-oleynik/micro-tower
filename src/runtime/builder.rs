@@ -98,6 +98,22 @@ impl Builder {
 		self
 	}
 
+	/// Register an `object` immediately. Requires a unique identifier (including service names).
+	///
+	/// # Panics
+	///
+	/// Will panic service or object with name already registered.
+	#[must_use]
+	pub fn manage<T: Send + Sync + 'static>(self, ident: impl Into<String>, object: T) -> Self {
+		{
+			let mut guard = self.registry.write().unwrap();
+			if guard.insert(ident, Box::new(object)).is_some() {
+				panic!("Object already used")
+			}
+		}
+		self
+	}
+
 	/// Build service runtime. Can only build once.
 	///
 	/// # Panics
